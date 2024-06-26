@@ -1,0 +1,17 @@
+[package]
+name = "momtrop"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+smallvec = "1.13.2"
+serde = { version = "1.0.201", features = ["derive"]}
+ahash = "0.8.11"
+num = { version = "0.4.1", features = ["serde"] }
+f128 = { git = "https://github.com/benruijl/f128" }
+statrs = "0.16.0"
+itertools = "0.12.1"
+rand = "0.8.5"
+fastrand = "2.1.0"
