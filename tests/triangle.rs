@@ -91,7 +91,7 @@ fn integrate_massless_triangle() {
     let avg = sum / n_samples as f64;
 
     // this is the exact value with this seed
-    assert_eq!(0.00009746632384330663, avg);
+    assert_eq!(0.00009746632384330661, avg);
 }
 
 fn energy_0(k: &Vector<f64>) -> f64 {

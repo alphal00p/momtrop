@@ -61,6 +61,7 @@ pub fn sample<T: FloatLike + Into<f64>>(
         tropical_subgraph_table.tropical_graph.dod,
         Into::<f64>::into(mimic_rng.get_random_number(Some("sample lambda"))),
         50,
+        5.0,
     ));
 
     if print_debug_info {
