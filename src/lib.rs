@@ -9,6 +9,7 @@ mod float;
 mod gamma;
 mod matrix;
 mod preprocessing;
+mod rng;
 mod sampling;
 pub mod vector;
 

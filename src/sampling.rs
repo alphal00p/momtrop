@@ -3,6 +3,7 @@ use statrs::function::gamma::gamma;
 
 use super::TropicalSubgraphTable;
 use crate::matrix::SquareMatrix;
+use crate::rng::{MimicRng, MyRng};
 use crate::vector::Vector;
 use crate::TropicalSampleResult;
 use crate::{float::FloatLike, gamma::inverse_gamma_lr};
@@ -11,32 +12,6 @@ fn box_muller<T: FloatLike>(x1: T, x2: T) -> (T, T) {
     let r = (-Into::<T>::into(2.) * x1.ln()).sqrt();
     let theta = Into::<T>::into(2.) * T::PI() * x2;
     (r * theta.cos(), r * theta.sin())
-}
-
-/// Fake random number generator, perhaps it is more readable to get rid of this.
-struct MimicRng<'a, T> {
-    cache: &'a [T],
-    counter: usize,
-    tokens: Vec<&'a str>,
-}
-
-impl<'a, T: Copy> MimicRng<'a, T> {
-    fn get_random_number(&mut self, token: Option<&'a str>) -> T {
-        let random_number = self.cache[self.counter];
-        self.counter += 1;
-        if let Some(token) = token {
-            self.tokens.push(token);
-        }
-        random_number
-    }
-
-    fn new(cache: &'a [T]) -> Self {
-        Self {
-            cache,
-            counter: 0,
-            tokens: Vec::new(),
-        }
-    }
 }
 
 pub fn sample<T: FloatLike + Into<f64>>(
