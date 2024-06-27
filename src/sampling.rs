@@ -3,7 +3,7 @@ use statrs::function::gamma::gamma;
 
 use super::TropicalSubgraphTable;
 use crate::matrix::SquareMatrix;
-use crate::rng::{MimicRng, MyRng};
+use crate::mimic_rng::MimicRng;
 use crate::vector::Vector;
 use crate::TropicalSampleResult;
 use crate::{float::FloatLike, gamma::inverse_gamma_lr};

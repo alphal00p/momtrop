@@ -57,7 +57,8 @@ fn integrate_massless_triangle() {
     for _ in 0..n_samples {
         let x_space_point = repeat_with(|| rng.f64()).take(n_vars).collect_vec();
 
-        let sample = sampler.generate_sample(&x_space_point, edge_data.clone(), false);
+        let sample =
+            sampler.generate_sample_from_x_space_point(&x_space_point, edge_data.clone(), false);
 
         let energy_0 = energy_0(&sample.loop_momenta[0]);
         let energy_1 = energy_1(&sample.loop_momenta[0], &p1);

@@ -1,15 +1,18 @@
+use std::iter::repeat_with;
+
 use f128::f128;
 use float::FloatLike;
 use itertools::Itertools;
 use preprocessing::{TropicalGraph, TropicalSubgraphTable};
+use rand::Rng;
 use sampling::sample;
 use vector::Vector;
 
 mod float;
 mod gamma;
 mod matrix;
+mod mimic_rng;
 mod preprocessing;
-mod rng;
 mod sampling;
 pub mod vector;
 
@@ -78,7 +81,7 @@ pub struct SampleGenerator {
 }
 
 impl SampleGenerator {
-    pub fn generate_sample(
+    pub fn generate_sample_from_x_space_point(
         &self,
         x_space_point: &[f64],
         edge_data: Vec<(Option<f64>, vector::Vector<f64>)>,
@@ -93,7 +96,21 @@ impl SampleGenerator {
         )
     }
 
-    pub fn generate_sample_f128(
+    pub fn generate_sample_from_rng<R: Rng>(
+        &self,
+        edge_data: Vec<(Option<f64>, vector::Vector<f64>)>,
+        print_debug_info: bool,
+        rng: &mut R,
+    ) -> TropicalSampleResult<f64> {
+        let num_vars = self.get_dimension();
+        let x_space_point = repeat_with(|| rng.gen::<f64>())
+            .take(num_vars)
+            .collect_vec();
+
+        self.generate_sample_from_x_space_point(&x_space_point, edge_data, print_debug_info)
+    }
+
+    pub fn generate_sample_f128_from_x_space_point(
         &self,
         x_space_point: &[f64],
         edge_data: Vec<(Option<f64>, vector::Vector<f64>)>,
@@ -112,6 +129,20 @@ impl SampleGenerator {
             upcasted_edge_data,
             print_debug_info,
         )
+    }
+
+    pub fn generate_sample_f128_from_rng<R: Rng>(
+        &self,
+        edge_data: Vec<(Option<f64>, vector::Vector<f64>)>,
+        print_debug_info: bool,
+        rng: &mut R,
+    ) -> TropicalSampleResult<f128> {
+        let num_vars = self.get_dimension();
+        let x_space_point = repeat_with(|| rng.gen::<f64>())
+            .take(num_vars)
+            .collect_vec();
+
+        self.generate_sample_f128_from_x_space_point(&x_space_point, edge_data, print_debug_info)
     }
 
     pub fn get_dimension(&self) -> usize {
