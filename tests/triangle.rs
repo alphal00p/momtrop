@@ -1,7 +1,7 @@
-use itertools::Itertools;
 use momtrop::{vector::Vector, Edge, Graph};
+use rand::SeedableRng;
 
-use std::{iter::repeat_with, vec};
+use std::vec;
 
 #[test]
 fn integrate_massless_triangle() {
@@ -37,13 +37,11 @@ fn integrate_massless_triangle() {
     let p1 = Vector::from_vec(vec![3.0, 4.0, 5.0]);
     let p2 = Vector::from_vec(vec![6.0, 7.0, 8.0]);
 
-    let mut rng = fastrand::Rng::with_seed(69);
+    let mut rng = rand::rngs::StdRng::seed_from_u64(69);
 
     let mut sum = 0.0;
 
-    let n_vars = sampler.get_dimension();
-
-    let n_samples = 100000;
+    let n_samples = 1000000;
 
     let edge_data = vec![
         (None, Vector::new(3)),
@@ -55,10 +53,7 @@ fn integrate_massless_triangle() {
     let p20 = 1.0;
 
     for _ in 0..n_samples {
-        let x_space_point = repeat_with(|| rng.f64()).take(n_vars).collect_vec();
-
-        let sample =
-            sampler.generate_sample_from_x_space_point(&x_space_point, edge_data.clone(), false);
+        let sample = sampler.generate_sample_from_rng(edge_data.clone(), false, &mut rng);
 
         let energy_0 = energy_0(&sample.loop_momenta[0]);
         let energy_1 = energy_1(&sample.loop_momenta[0], &p1);
@@ -91,8 +86,8 @@ fn integrate_massless_triangle() {
 
     let avg = sum / n_samples as f64;
 
-    // this is the exact value with this seed
-    assert_eq!(0.00009746632384330661, avg);
+    // this is the exact value with this seed, needs a more robust test
+    assert_eq!(9.758362839019333e-5, avg);
 }
 
 fn energy_0(k: &Vector<f64>) -> f64 {
