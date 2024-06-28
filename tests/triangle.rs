@@ -1,8 +1,6 @@
 use momtrop::{vector::Vector, Edge, Graph};
 use rand::SeedableRng;
 
-use std::vec;
-
 #[test]
 fn integrate_massless_triangle() {
     let weight = 2. / 3.;
@@ -41,6 +39,9 @@ fn integrate_massless_triangle() {
 
     let mut sum = 0.0;
 
+    let mut max_pol_ratio: f64 = 0.0;
+    let mut min_pol_ratio: f64 = 1.0;
+
     let n_samples = 1000000;
 
     let edge_data = vec![
@@ -67,6 +68,9 @@ fn integrate_massless_triangle() {
         let polynomial_ratio = (sample.u_trop / sample.u).powf(3. / 2.)
             * (sample.v_trop / sample.v).powf(sampler.get_dod());
 
+        max_pol_ratio = max_pol_ratio.max(polynomial_ratio);
+        min_pol_ratio = min_pol_ratio.min(polynomial_ratio);
+
         let prefactor = energy_prefactor
             * pi_prefactor
             * factor_2_prefactor
@@ -85,6 +89,13 @@ fn integrate_massless_triangle() {
     }
 
     let avg = sum / n_samples as f64;
+
+    // theoretical bound
+    assert!(
+        min_pol_ratio
+            >= (1f64 / 3f64).powf(sampler.get_dimension() as f64 / 2. - sampler.get_dod())
+                * (1f64 / 570f64).powf(sampler.get_dod())
+    );
 
     // this is the exact value with this seed, needs a more robust test
     assert_eq!(9.758362839019333e-5, avg);
