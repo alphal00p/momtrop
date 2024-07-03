@@ -94,8 +94,11 @@ fn integrate_massless_triangle() {
     assert!(
         min_pol_ratio
             >= (1f64 / 3f64).powf(sampler.get_dimension() as f64 / 2. - sampler.get_dod())
-                * (1f64 / 570f64).powf(sampler.get_dod())
+                * (1f64 / (p1.squared() + p2.squared() + (&p1 + &p2).squared()))
+                    .powf(sampler.get_dod())
     );
+
+    assert!(max_pol_ratio <= (1f64 / p1.squared()).powf(sampler.get_dod()));
 
     // this is the exact value with this seed, needs a more robust test
     assert_eq!(9.758362839019333e-5, avg);
