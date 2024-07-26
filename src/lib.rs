@@ -9,7 +9,7 @@ use sampling::sample;
 use vector::Vector;
 
 mod float;
-mod gamma;
+pub mod gamma;
 mod matrix;
 mod mimic_rng;
 mod preprocessing;
