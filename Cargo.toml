@@ -9,6 +9,10 @@ edition = "2021"
 name = "gamma_bench"
 harness = false
 
+[[bench]]
+name = "graph_bench"
+harness = false
+
 [dependencies]
 smallvec = "1.13.2"
 serde = { version = "1.0.201", features = ["derive"]}
