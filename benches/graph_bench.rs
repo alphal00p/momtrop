@@ -1,7 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use momtrop::{vector::Vector, Edge, Graph};
 use rand::{Rng, SeedableRng};
-use smallvec::smallvec;
 
 fn criterion_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("graphs");
@@ -34,10 +33,10 @@ fn criterion_benchmark(c: &mut Criterion) {
     let loop_signature = vec![vec![1]; 3];
     let sampler = graph.build_sampler(loop_signature, 3).unwrap();
     let mut rng = rand::rngs::StdRng::seed_from_u64(69);
-    let p1 = Vector::from_vec(smallvec![3.0, 4.0, 5.0]);
-    let p2 = Vector::from_vec(smallvec![6.0, 7.0, 8.0]);
+    let p1 = Vector::from_array([3.0, 4.0, 5.0]);
+    let p2 = Vector::from_array([6.0, 7.0, 8.0]);
     let edge_data = vec![
-        (None, Vector::new(3)),
+        (None, Vector::new()),
         (None, p1.clone()),
         (None, (&p1 + &p2).clone()),
     ];

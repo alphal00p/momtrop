@@ -14,13 +14,13 @@ fn box_muller<T: FloatLike>(x1: T, x2: T) -> (T, T) {
     (r * theta.cos(), r * theta.sin())
 }
 
-pub fn sample<T: FloatLike + Into<f64>>(
+pub fn sample<T: FloatLike + Into<f64>, const D: usize>(
     tropical_subgraph_table: &TropicalSubgraphTable,
     x_space_point: &[T],
     loop_signature: &[Vec<isize>],
-    edge_data: Vec<(Option<T>, Vector<T>)>,
+    edge_data: Vec<(Option<T>, Vector<T, D>)>,
     print_debug_info: bool,
-) -> TropicalSampleResult<T> {
+) -> TropicalSampleResult<T, D> {
     let num_loops = tropical_subgraph_table.tropical_graph.num_loops;
 
     let mut mimic_rng = MimicRng::new(x_space_point);
@@ -43,7 +43,7 @@ pub fn sample<T: FloatLike + Into<f64>>(
         println!("lambda: {}", lambda);
     }
 
-    let (edge_masses, edge_shifts): (Vec<T>, Vec<Vector<T>>) = edge_data
+    let (edge_masses, edge_shifts): (Vec<T>, Vec<Vector<T, D>>) = edge_data
         .into_iter()
         .map(|(option_mass, edge_shift)| {
             if let Some(mass) = option_mass {
@@ -55,12 +55,7 @@ pub fn sample<T: FloatLike + Into<f64>>(
         .unzip();
 
     let q_vectors = sample_q_vectors(&mut mimic_rng, tropical_subgraph_table.dimension, num_loops);
-    let u_vectors = compute_u_vectors(
-        &permatuhedral_sample.x,
-        loop_signature,
-        &edge_shifts,
-        tropical_subgraph_table.dimension,
-    );
+    let u_vectors = compute_u_vectors(&permatuhedral_sample.x, loop_signature, &edge_shifts);
 
     let v_polynomial = compute_v_polynomial(
         &permatuhedral_sample.x,
@@ -77,7 +72,6 @@ pub fn sample<T: FloatLike + Into<f64>>(
         &q_vectors,
         &decomposed_l_matrix.inverse,
         &u_vectors,
-        tropical_subgraph_table.dimension,
     );
 
     let i_trop = Into::<T>::into(tropical_subgraph_table.table.last().unwrap().j_function);
@@ -128,6 +122,7 @@ struct PermatuhedralSamplingResult<T> {
 
 /// This function returns the feynman parameters for a given graph and sample point, it also computes u_trop and v_trop.
 /// A rescaling is performed for numerical stability, with this rescaling u_trop and v_trop always evaluate to 1.
+#[inline]
 fn permatuhedral_sampling<T: FloatLike>(
     tropical_subgraph_table: &TropicalSubgraphTable,
     rng: &mut MimicRng<T>,
@@ -239,43 +234,48 @@ fn compute_l_matrix<T: FloatLike>(x_vec: &[T], signature_matrix: &[Vec<isize>]) 
 
 /// Sample Gaussian distributed vectors, using the Box-Muller transform
 #[inline]
-fn sample_q_vectors<T: FloatLike>(
+fn sample_q_vectors<T: FloatLike, const D: usize>(
     rng: &mut MimicRng<T>,
     dimension: usize,
     num_loops: usize,
-) -> Vec<Vector<T>> {
+) -> Vec<Vector<T, D>> {
     let token = Some("box muller");
     let num_variables = dimension * num_loops;
 
     let num_uniform_variables = num_variables + num_variables % 2;
-    let gaussians = (0..num_uniform_variables / 2).flat_map(|_| {
+    let mut gaussians = (0..num_uniform_variables / 2).flat_map(|_| {
         let (box_muller_1, box_muller_2) =
             box_muller(rng.get_random_number(token), rng.get_random_number(token));
 
         [box_muller_1, box_muller_2]
     });
 
-    #[allow(clippy::useless_conversion)] // without the conversion I get an error
-    (0..num_loops)
-        .zip(gaussians.chunks(dimension).into_iter())
-        .map(|(_, chunk)| Vector::from_vec(chunk.collect()))
-        .collect_vec()
+    let mut res = Vec::with_capacity(num_loops);
+
+    for _ in 0..num_loops {
+        let mut vec = Vector::<T, D>::new();
+        for i in 0..D {
+            vec[i] = gaussians.next().unwrap_or_else(|| unreachable!());
+        }
+        res.push(vec);
+    }
+
+    res
 }
 
 /// Compute the vectors u, according to the formula in the notes
 #[inline]
-fn compute_u_vectors<T: FloatLike>(
+fn compute_u_vectors<T: FloatLike, const D: usize>(
     x_vec: &[T],
     signature_marix: &[Vec<isize>],
-    edge_shifts: &[Vector<T>],
-    dimension: usize,
-) -> Vec<Vector<T>> {
+    edge_shifts: &[Vector<T, D>],
+) -> Vec<Vector<T, D>> {
     let num_loops = signature_marix[0].len();
     let num_edges = signature_marix.len();
 
     (0..num_loops)
         .map(|l| {
-            (0..num_edges).fold(Vector::new(dimension), |acc: Vector<T>, e| {
+            (0..num_edges).fold(Vector::new(), |acc: Vector<T, D>, e| {
                 &acc + &(&edge_shifts[e]
                     * (x_vec[e] * Into::<T>::into(signature_marix[e][l] as f64)))
             })
@@ -285,11 +285,11 @@ fn compute_u_vectors<T: FloatLike>(
 
 /// Compute the polynomial v, according to the formula in the notes
 #[inline]
-fn compute_v_polynomial<T: FloatLike>(
+fn compute_v_polynomial<T: FloatLike, const D: usize>(
     x_vec: &[T],
-    u_vectors: &[Vector<T>],
+    u_vectors: &[Vector<T, D>],
     inverse_l: &SquareMatrix<T>,
-    edge_shifts: &[Vector<T>],
+    edge_shifts: &[Vector<T, D>],
     edge_masses: &[T],
 ) -> T {
     let num_loops = inverse_l.get_dim();
@@ -308,25 +308,24 @@ fn compute_v_polynomial<T: FloatLike>(
 
 /// Compute the loop momenta, according to the formula in the notes
 #[inline]
-fn compute_loop_momenta<T: FloatLike>(
+fn compute_loop_momenta<T: FloatLike, const D: usize>(
     v: T,
     lambda: T,
     q_t_inverse: &SquareMatrix<T>,
-    q_vectors: &[Vector<T>],
+    q_vectors: &[Vector<T, D>],
     l_inverse: &SquareMatrix<T>,
-    u_vectors: &[Vector<T>],
-    dimension: usize,
-) -> Vec<Vector<T>> {
+    u_vectors: &[Vector<T, D>],
+) -> Vec<Vector<T, D>> {
     let num_loops = q_t_inverse.get_dim();
     let prefactor = (v / lambda * Into::<T>::into(0.5)).sqrt();
 
     (0..num_loops)
         .map(|l| {
             q_vectors.iter().zip(u_vectors.iter()).enumerate().fold(
-                Vector::new(dimension),
+                Vector::new(),
                 |acc, (l_prime, (q, u))| {
-                    let q_part: Vector<T> = q * (prefactor * q_t_inverse[(l, l_prime)]);
-                    let u_part: Vector<T> = u * l_inverse[(l, l_prime)];
+                    let q_part: Vector<T, D> = q * (prefactor * q_t_inverse[(l, l_prime)]);
+                    let u_part: Vector<T, D> = u * l_inverse[(l, l_prime)];
 
                     &(&acc + &q_part) - &u_part
                 },

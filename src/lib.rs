@@ -42,8 +42,8 @@ pub struct Edge {
     pub weight: f64,
 }
 
-pub struct TropicalSampleResult<T: FloatLike> {
-    pub loop_momenta: Vec<Vector<T>>,
+pub struct TropicalSampleResult<T: FloatLike, const D: usize> {
+    pub loop_momenta: Vec<Vector<T, D>>,
     pub u_trop: T,
     pub v_trop: T,
     pub u: T,
@@ -53,11 +53,11 @@ pub struct TropicalSampleResult<T: FloatLike> {
 }
 
 impl Graph {
-    pub fn build_sampler(
+    pub fn build_sampler<const D: usize>(
         self,
         loop_signature: Vec<Vec<isize>>,
         dimension: usize,
-    ) -> Result<SampleGenerator, String> {
+    ) -> Result<SampleGenerator<D>, String> {
         let tropical_graph = TropicalGraph::from_graph(self, dimension);
         let table = TropicalSubgraphTable::generate_from_tropical(&tropical_graph, dimension)?;
 
@@ -78,19 +78,19 @@ fn approx_eq(res: f64, target: f64, tolerance: f64) -> bool {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SampleGenerator {
+pub struct SampleGenerator<const D: usize> {
     loop_signature: Vec<Vec<isize>>,
     table: TropicalSubgraphTable,
 }
 
-impl SampleGenerator {
+impl<const D: usize> SampleGenerator<D> {
     pub fn generate_sample_from_x_space_point(
         &self,
         x_space_point: &[f64],
-        edge_data: Vec<(Option<f64>, vector::Vector<f64>)>,
+        edge_data: Vec<(Option<f64>, vector::Vector<f64, D>)>,
         print_debug_info: bool,
-    ) -> TropicalSampleResult<f64> {
-        sample::<f64>(
+    ) -> TropicalSampleResult<f64, D> {
+        sample::<f64, D>(
             &self.table,
             x_space_point,
             &self.loop_signature,
@@ -101,10 +101,10 @@ impl SampleGenerator {
 
     pub fn generate_sample_from_rng<R: Rng>(
         &self,
-        edge_data: Vec<(Option<f64>, vector::Vector<f64>)>,
+        edge_data: Vec<(Option<f64>, vector::Vector<f64, D>)>,
         print_debug_info: bool,
         rng: &mut R,
-    ) -> TropicalSampleResult<f64> {
+    ) -> TropicalSampleResult<f64, D> {
         let num_vars = self.get_dimension();
         let x_space_point = repeat_with(|| rng.gen::<f64>())
             .take(num_vars)
@@ -116,16 +116,16 @@ impl SampleGenerator {
     pub fn generate_sample_f128_from_x_space_point(
         &self,
         x_space_point: &[f64],
-        edge_data: Vec<(Option<f64>, vector::Vector<f64>)>,
+        edge_data: Vec<(Option<f64>, vector::Vector<f64, D>)>,
         print_debug_info: bool,
-    ) -> TropicalSampleResult<f128> {
+    ) -> TropicalSampleResult<f128, D> {
         let upcasted_xspace_point = x_space_point.iter().copied().map(f128::new).collect_vec();
         let upcasted_edge_data = edge_data
             .into_iter()
             .map(|(mass, edge_shift)| (mass.map(f128::new), edge_shift.upcast()))
             .collect();
 
-        sample::<f128>(
+        sample::<f128, D>(
             &self.table,
             &upcasted_xspace_point,
             &self.loop_signature,
@@ -136,10 +136,10 @@ impl SampleGenerator {
 
     pub fn generate_sample_f128_from_rng<R: Rng>(
         &self,
-        edge_data: Vec<(Option<f64>, vector::Vector<f64>)>,
+        edge_data: Vec<(Option<f64>, vector::Vector<f64, D>)>,
         print_debug_info: bool,
         rng: &mut R,
-    ) -> TropicalSampleResult<f128> {
+    ) -> TropicalSampleResult<f128, D> {
         let num_vars = self.get_dimension();
         let x_space_point = repeat_with(|| rng.gen::<f64>())
             .take(num_vars)

@@ -1,5 +1,6 @@
 use statrs::function::gamma::{gamma, gamma_lr, gamma_ur};
 
+#[inline]
 pub fn inverse_gamma_lr(a: f64, p: f64, max_n_iter: usize, epsilon_tolerance: f64) -> f64 {
     // this algorithm is taken from https://dl.acm.org/doi/pdf/10.1145/22721.23109
 

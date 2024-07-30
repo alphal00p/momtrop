@@ -56,6 +56,7 @@ impl TropicalGraph {
         res
     }
 
+    #[inline]
     pub fn get_full_subgraph_id(&self) -> TropicalSubGraphId {
         TropicalSubGraphId::new(self.topology.len())
     }

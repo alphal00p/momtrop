@@ -6,6 +6,7 @@ pub struct MimicRng<'a, T> {
 }
 
 impl<'a, T: Copy> MimicRng<'a, T> {
+    #[inline]
     pub fn new(cache: &'a [T]) -> Self {
         Self {
             cache,
@@ -13,6 +14,8 @@ impl<'a, T: Copy> MimicRng<'a, T> {
             tokens: Vec::new(),
         }
     }
+
+    #[inline]
     pub fn get_random_number(&mut self, debug_token: Option<&'a str>) -> T {
         let random_number = self.cache[self.counter];
         self.counter += 1;

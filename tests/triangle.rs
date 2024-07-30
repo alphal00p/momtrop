@@ -1,6 +1,5 @@
 use momtrop::{vector::Vector, Edge, Graph};
 use rand::SeedableRng;
-use smallvec::smallvec;
 
 #[test]
 fn integrate_massless_triangle() {
@@ -33,8 +32,8 @@ fn integrate_massless_triangle() {
 
     let loop_signature = vec![vec![1]; 3];
     let sampler = graph.build_sampler(loop_signature, 3).unwrap();
-    let p1 = Vector::from_vec(smallvec![3.0, 4.0, 5.0]);
-    let p2 = Vector::from_vec(smallvec![6.0, 7.0, 8.0]);
+    let p1 = Vector::from_array([3.0, 4.0, 5.0]);
+    let p2 = Vector::from_array([6.0, 7.0, 8.0]);
 
     let mut rng = rand::rngs::StdRng::seed_from_u64(69);
 
@@ -46,7 +45,7 @@ fn integrate_massless_triangle() {
     let n_samples = 1000000;
 
     let edge_data = vec![
-        (None, Vector::new(3)),
+        (None, Vector::new()),
         (None, p1.clone()),
         (None, (&p1 + &p2).clone()),
     ];
@@ -105,14 +104,14 @@ fn integrate_massless_triangle() {
     assert_eq!(9.758362839019333e-5, avg);
 }
 
-fn energy_0(k: &Vector<f64>) -> f64 {
+fn energy_0(k: &Vector<f64, 3>) -> f64 {
     k.squared().sqrt()
 }
 
-fn energy_1(k: &Vector<f64>, p: &Vector<f64>) -> f64 {
+fn energy_1(k: &Vector<f64, 3>, p: &Vector<f64, 3>) -> f64 {
     (k + p).squared().sqrt()
 }
 
-fn energy_2(k: &Vector<f64>, p1: &Vector<f64>, p2: &Vector<f64>) -> f64 {
+fn energy_2(k: &Vector<f64, 3>, p1: &Vector<f64, 3>, p2: &Vector<f64, 3>) -> f64 {
     (k + &(p1 + p2)).squared().sqrt()
 }
