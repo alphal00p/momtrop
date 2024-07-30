@@ -48,7 +48,6 @@ pub struct TropicalSampleResult<T: FloatLike, const D: usize> {
     pub v_trop: T,
     pub u: T,
     pub v: T,
-    pub prefactor: T,
     pub jacobian: T,
 }
 

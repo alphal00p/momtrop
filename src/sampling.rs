@@ -1,5 +1,4 @@
 use itertools::{izip, Itertools};
-use statrs::function::gamma::gamma;
 
 use super::TropicalSubgraphTable;
 use crate::matrix::SquareMatrix;
@@ -74,18 +73,6 @@ pub fn sample<T: FloatLike + Into<f64>, const D: usize>(
         &u_vectors,
     );
 
-    let i_trop = Into::<T>::into(tropical_subgraph_table.table.last().unwrap().j_function);
-
-    let gamma_omega = Into::<T>::into(gamma(tropical_subgraph_table.tropical_graph.dod));
-    let denom = Into::<T>::into(
-        tropical_subgraph_table
-            .tropical_graph
-            .topology
-            .iter()
-            .map(|e| gamma(e.weight))
-            .product::<f64>(),
-    );
-
     if print_debug_info {
         println!("v: {}", v_polynomial);
         println!("u: {}", decomposed_l_matrix.determinant);
@@ -95,13 +82,12 @@ pub fn sample<T: FloatLike + Into<f64>, const D: usize>(
     let v_trop = permatuhedral_sample.v_trop;
     let u = decomposed_l_matrix.determinant;
     let v = v_polynomial;
-    let prefactor = i_trop * gamma_omega / denom;
 
     let jacobian = (u_trop / u).powf(Into::<T>::into(
         tropical_subgraph_table.dimension as f64 / 2.0,
     )) * (v_trop / v)
         .powf(Into::<T>::into(tropical_subgraph_table.tropical_graph.dod))
-        * prefactor;
+        * Into::<T>::into(tropical_subgraph_table.cached_factor);
 
     TropicalSampleResult {
         loop_momenta,
@@ -109,7 +95,6 @@ pub fn sample<T: FloatLike + Into<f64>, const D: usize>(
         v_trop,
         u,
         v,
-        prefactor,
         jacobian,
     }
 }

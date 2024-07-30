@@ -59,19 +59,14 @@ fn integrate_massless_triangle() {
         let energy_prefactor = energy_0.powf(2. * weight - 1.)
             * energy_1.powf(2. * weight - 1.)
             * energy_2.powf(2. * weight - 1.);
-        let pi_prefactor = std::f64::consts::PI.powf(-1.5);
-        let factor_2_prefactor = 1. / 64.;
         let polynomial_ratio = (sample.u_trop / sample.u).powf(3. / 2.)
             * (sample.v_trop / sample.v).powf(sampler.get_dod());
 
         max_pol_ratio = max_pol_ratio.max(polynomial_ratio);
         min_pol_ratio = min_pol_ratio.min(polynomial_ratio);
 
-        let prefactor = energy_prefactor
-            * pi_prefactor
-            * factor_2_prefactor
-            * polynomial_ratio
-            * sample.prefactor;
+        let pi_factor = (2f64 * std::f64::consts::PI).powi(3);
+        let prefactor = energy_prefactor * sample.jacobian / pi_factor;
 
         let term1 = ((energy_0 + energy_1 + p10) * (energy_2 + energy_0 + p10 + p20)).recip();
         let term2 = ((energy_2 + energy_0 - p10 - p20) * (energy_1 + energy_2 - p20)).recip();
@@ -97,7 +92,7 @@ fn integrate_massless_triangle() {
     assert!(max_pol_ratio <= (1f64 / p1.squared()).powf(sampler.get_dod()));
 
     // this is the exact value with this seed, needs a more robust test
-    assert_eq!(9.758362839019333e-5, avg);
+    assert_eq!(9.758362839019336e-5, avg);
 }
 
 fn energy_0(k: &Vector<f64, 3>) -> f64 {

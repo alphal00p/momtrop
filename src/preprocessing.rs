@@ -1,6 +1,9 @@
+use core::f64;
+
 use ahash::HashSet;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use statrs::function::gamma::gamma;
 
 use crate::{float::FloatLike, Graph, MAX_EDGES};
 
@@ -370,6 +373,7 @@ pub struct TropicalSubgraphTable {
     pub table: Vec<TropicalSubgraphTableEntry>,
     pub dimension: usize,
     pub tropical_graph: TropicalGraph,
+    pub cached_factor: f64,
 }
 
 impl TropicalSubgraphTable {
@@ -427,12 +431,30 @@ impl TropicalSubgraphTable {
 
         TropicalGraph::recursive_fill_j_function(&full_subgraph_id, &mut option_subgraph_table);
 
+        let gamma_omega = gamma(tropical_graph.dod);
+        let denom = tropical_graph
+            .topology
+            .iter()
+            .map(|e| gamma(e.weight))
+            .product::<f64>();
+
+        let gamma_ratio = gamma_omega / denom;
+        let pi_factor = f64::consts::PI.powf((dimension * tropical_graph.num_loops) as f64 / 2.);
+        let two_to_the_e = (1 << tropical_graph.topology.len()) as f64;
+
+        let table = option_subgraph_table
+            .into_iter()
+            .map(OptionTropicalSubgraphTableEntry::to_entry)
+            .collect_vec();
+
+        let i_tr = table.last().unwrap().j_function;
+
+        let cached_factor = i_tr * gamma_ratio * pi_factor / two_to_the_e;
+
         Ok(TropicalSubgraphTable {
-            table: option_subgraph_table
-                .into_iter()
-                .map(OptionTropicalSubgraphTableEntry::to_entry)
-                .collect(),
+            table,
             dimension,
+            cached_factor,
             tropical_graph: tropical_graph.clone(),
         })
     }
