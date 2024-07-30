@@ -37,6 +37,12 @@ impl<T: FloatLike> Vector<T> {
             .map(|(&left, &right)| left * right)
             .sum::<T>()
     }
+
+    // We are not going to do zero-dimensional qft!
+    #[allow(clippy::len_without_is_empty)]
+    pub fn len(&self) -> usize {
+        self.elements.len()
+    }
 }
 
 impl Vector<f64> {
