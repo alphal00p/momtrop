@@ -302,10 +302,6 @@ fn compute_v_polynomial<T: FloatLike, const D: usize>(
     }
 
     res
-    //let term_2 = (0..num_loops)
-    //    .cartesian_product(0..num_loops)
-    //    .map(|(i, j)| u_vectors[i].dot(&u_vectors[j]) * inverse_l[(i, j)])
-    //    .sum::<T>();
 }
 
 /// Compute the loop momenta, according to the formula in the notes
