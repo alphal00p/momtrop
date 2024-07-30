@@ -206,10 +206,16 @@ fn compute_l_matrix<T: FloatLike>(x_vec: &[T], signature_matrix: &[Vec<isize>]) 
     let mut temp_l_matrix = SquareMatrix::new_zeros(num_loops);
 
     for i in 0..num_loops {
-        for j in 0..num_loops {
+        for j in i..num_loops {
             for e in 0..num_edges {
-                temp_l_matrix[(i, j)] += x_vec[e]
+                let add = x_vec[e]
                     * Into::<T>::into((signature_matrix[e][i] * signature_matrix[e][j]) as f64);
+                if i == j {
+                    temp_l_matrix[(i, j)] += add;
+                } else {
+                    temp_l_matrix[(i, j)] += add;
+                    temp_l_matrix[(j, i)] += add;
+                }
             }
         }
     }
@@ -279,16 +285,27 @@ fn compute_v_polynomial<T: FloatLike, const D: usize>(
 ) -> T {
     let num_loops = inverse_l.get_dim();
 
-    let term_1 = izip!(x_vec, edge_masses, edge_shifts)
+    let mut res = T::zero();
+
+    res += izip!(x_vec, edge_masses, edge_shifts)
         .map(|(&x_e, &mass, shift)| x_e * (mass * mass + shift.squared()))
         .sum::<T>();
 
-    let term_2 = (0..num_loops)
-        .cartesian_product(0..num_loops)
-        .map(|(i, j)| u_vectors[i].dot(&u_vectors[j]) * inverse_l[(i, j)])
-        .sum::<T>();
+    for l in 0..num_loops {
+        res -= u_vectors[l].squared() * inverse_l[(l, l)];
+    }
 
-    term_1 - term_2
+    for i in 0..num_loops {
+        for j in i + 1..num_loops {
+            res -= Into::<T>::into(2.) * u_vectors[i].dot(&u_vectors[j]) * inverse_l[(i, j)]
+        }
+    }
+
+    res
+    //let term_2 = (0..num_loops)
+    //    .cartesian_product(0..num_loops)
+    //    .map(|(i, j)| u_vectors[i].dot(&u_vectors[j]) * inverse_l[(i, j)])
+    //    .sum::<T>();
 }
 
 /// Compute the loop momenta, according to the formula in the notes
