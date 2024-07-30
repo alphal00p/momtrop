@@ -154,4 +154,8 @@ impl SampleGenerator {
     pub fn get_dod(&self) -> f64 {
         self.table.tropical_graph.dod
     }
+
+    pub fn iter_edge_weights(&self) -> impl Iterator<Item = f64> + '_ {
+        self.table.tropical_graph.topology.iter().map(|e| e.weight)
+    }
 }
