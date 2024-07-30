@@ -13,6 +13,9 @@ harness = false
 name = "graph_bench"
 harness = false
 
+[profile.release]
+lto = "fat"
+
 [dependencies]
 smallvec = "1.13.2"
 ahash = "0.8.11"

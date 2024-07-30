@@ -1,5 +1,6 @@
 use momtrop::{vector::Vector, Edge, Graph};
 use rand::SeedableRng;
+use smallvec::smallvec;
 
 #[test]
 fn integrate_massless_triangle() {
@@ -32,8 +33,8 @@ fn integrate_massless_triangle() {
 
     let loop_signature = vec![vec![1]; 3];
     let sampler = graph.build_sampler(loop_signature, 3).unwrap();
-    let p1 = Vector::from_vec(vec![3.0, 4.0, 5.0]);
-    let p2 = Vector::from_vec(vec![6.0, 7.0, 8.0]);
+    let p1 = Vector::from_vec(smallvec![3.0, 4.0, 5.0]);
+    let p2 = Vector::from_vec(smallvec![6.0, 7.0, 8.0]);
 
     let mut rng = rand::rngs::StdRng::seed_from_u64(69);
 

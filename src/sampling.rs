@@ -258,7 +258,7 @@ fn sample_q_vectors<T: FloatLike>(
     #[allow(clippy::useless_conversion)] // without the conversion I get an error
     (0..num_loops)
         .zip(gaussians.chunks(dimension).into_iter())
-        .map(|(_, chunk)| Vector::from_vec(chunk.collect_vec()))
+        .map(|(_, chunk)| Vector::from_vec(chunk.collect()))
         .collect_vec()
 }
 
