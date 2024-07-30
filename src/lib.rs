@@ -6,6 +6,7 @@ use itertools::Itertools;
 use preprocessing::{TropicalGraph, TropicalSubgraphTable};
 use rand::Rng;
 use sampling::sample;
+use serde::{Deserialize, Serialize};
 use vector::Vector;
 
 mod float;
@@ -75,6 +76,7 @@ fn approx_eq(res: f64, target: f64, tolerance: f64) -> bool {
     }
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SampleGenerator {
     loop_signature: Vec<Vec<isize>>,
     table: TropicalSubgraphTable,

@@ -15,7 +15,6 @@ harness = false
 
 [dependencies]
 smallvec = "1.13.2"
-serde = { version = "1.0.201", features = ["derive"]}
 ahash = "0.8.11"
 num = { version = "0.4.1", features = ["serde"] }
 f128 = { git = "https://github.com/benruijl/f128" }
@@ -24,3 +23,4 @@ itertools = "0.12.1"
 rand = "0.8.5"
 fastrand = "2.1.0"
 criterion = "0.5.1"
+serde = { version = "1.0", features = ["derive"] }
