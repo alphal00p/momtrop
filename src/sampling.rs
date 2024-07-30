@@ -125,7 +125,10 @@ fn permatuhedral_sampling<T: FloatLike>(
     while !graph.is_empty() {
         // this saves a random variable
         let (edge, graph_without_edge) = if graph.has_one_edge() {
-            let edge = graph.contains_edges()[0];
+            let edge = graph
+                .contains_edges()
+                .next()
+                .unwrap_or_else(|| unreachable!());
             let graph_without_edge = graph.pop_edge(edge);
             (edge, graph_without_edge)
         } else {

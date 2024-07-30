@@ -75,17 +75,13 @@ impl TropicalGraph {
 
         let is_mass_spanning = num_massive_edges == self.num_massive_edges;
 
-        // this does not check the connected component property, needs to be fixe
-
         let connected_compoenents = self.get_connected_components(edges_in_subgraph);
 
         let is_momentum_spanning = connected_compoenents.iter().any(|component| {
-            let edges_in_connected_subgraph = component.contains_edges();
-            self.external_vertices.iter().all(|&v| {
-                edges_in_connected_subgraph
-                    .iter()
-                    .any(|&i| self.topology[i].contains_vertex(v))
-            })
+            let mut edges_in_connected_subgraph = component.contains_edges();
+            self.external_vertices
+                .iter()
+                .all(|&v| edges_in_connected_subgraph.any(|i| self.topology[i].contains_vertex(v)))
         });
 
         is_mass_spanning && is_momentum_spanning
@@ -176,13 +172,14 @@ impl TropicalGraph {
         let edges_in_connected_subgraph = subgraph_id.contains_edges();
         let mut vertices: HashSet<u8> = HashSet::default();
 
-        for &edge in &edges_in_connected_subgraph {
+        let mut num_edges = 0;
+        for edge in edges_in_connected_subgraph {
             vertices.insert(self.topology[edge].left);
             vertices.insert(self.topology[edge].right);
+            num_edges += 1;
         }
 
         let num_vertices = vertices.len();
-        let num_edges = edges_in_connected_subgraph.len();
         1 + num_edges - num_vertices
     }
 
@@ -229,7 +226,7 @@ impl TropicalGraph {
             }
 
             let edges_in_subgraph = subgraph_id.contains_edges();
-            let subgraphs = edges_in_subgraph.iter().map(|&e| subgraph_id.pop_edge(e));
+            let subgraphs = edges_in_subgraph.map(|e| subgraph_id.pop_edge(e));
 
             let j_function = subgraphs
                 .map(|g| {
@@ -301,8 +298,8 @@ impl TropicalSubGraphId {
     }
 
     /// Get the edges contained in the subgraph
-    pub fn contains_edges(&self) -> Vec<usize> {
-        (0..self.num_edges).filter(|&i| self.has_edge(i)).collect()
+    pub fn contains_edges(&self) -> impl Iterator<Item = usize> + '_ {
+        (0..self.num_edges).filter(|&i| self.has_edge(i))
     }
 
     /// Check if the subgraph contains only one edge, this is a special case in the tropical sampling algorithm
@@ -395,7 +392,7 @@ impl TropicalSubgraphTable {
         let full_subgraph_id = tropical_graph.get_full_subgraph_id();
 
         for subgraph in subgraph_iterator {
-            let edges_in_subgraph = subgraph.contains_edges();
+            let edges_in_subgraph = subgraph.contains_edges().collect_vec();
 
             // check the mass-momentum spanning property
             let is_mass_momentum_spanning =
@@ -470,7 +467,7 @@ impl TropicalSubgraphTable {
         let j = Into::<T>::into(self.table[subgraph.id].j_function);
 
         let mut cum_sum = T::zero();
-        for &edge in &edges_in_subgraph {
+        for edge in edges_in_subgraph {
             let graph_without_edge = subgraph.pop_edge(edge);
             let p_e = Into::<T>::into(self.table[graph_without_edge.id].j_function)
                 / Into::<T>::into(j)
@@ -507,6 +504,8 @@ mod tests {
     // panics with useful error message
 
     mod subgraph_id {
+        use itertools::Itertools;
+
         use crate::preprocessing::TropicalSubGraphId;
         #[test]
         fn test_get_id() {
@@ -524,7 +523,7 @@ mod tests {
         #[test]
         fn test_contains_edges() {
             let id = TropicalSubGraphId::new(2);
-            let edges = id.contains_edges();
+            let edges = id.contains_edges().collect_vec();
             assert_eq!(edges.len(), 2);
             assert!(edges.contains(&0));
             assert!(edges.contains(&1));
@@ -535,7 +534,7 @@ mod tests {
             let mut id = TropicalSubGraphId::new(3);
             id = id.pop_edge(2);
 
-            let edges = id.contains_edges();
+            let edges = id.contains_edges().collect_vec();
 
             assert_eq!(edges.len(), 2);
             assert!(edges.contains(&0));
@@ -579,7 +578,7 @@ mod tests {
         #[test]
         fn test_from_edge_list() {
             let subgraph_id = TropicalSubGraphId::from_edge_list(&[0, 1, 3], 4);
-            let edges = subgraph_id.contains_edges();
+            let edges = subgraph_id.contains_edges().collect_vec();
             assert_eq!(edges.len(), 3);
 
             assert!(subgraph_id.has_edge(0));
