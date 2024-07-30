@@ -2,7 +2,7 @@ use f128::f128;
 use itertools::Itertools;
 
 use crate::float::FloatLike;
-use std::ops::{Add, AddAssign, Mul, Sub};
+use std::ops::{Add, AddAssign, Index, Mul, Sub};
 
 #[derive(Clone, Debug)]
 pub struct Vector<T: FloatLike> {
@@ -42,6 +42,14 @@ impl<T: FloatLike> Vector<T> {
     #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         self.elements.len()
+    }
+}
+
+impl<T: FloatLike> Index<usize> for Vector<T> {
+    type Output = T;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.elements[index]
     }
 }
 
