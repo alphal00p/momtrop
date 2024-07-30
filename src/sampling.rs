@@ -288,9 +288,7 @@ fn compute_v_polynomial<T: FloatLike, const D: usize>(
 ) -> T {
     let num_loops = inverse_l.get_dim();
 
-    let mut res = T::zero();
-
-    res += izip!(x_vec, edge_masses, edge_shifts)
+    let mut res = izip!(x_vec, edge_masses, edge_shifts)
         .map(|(&x_e, &mass, shift)| x_e * (mass * mass + shift.squared()))
         .sum::<T>();
 
@@ -300,7 +298,7 @@ fn compute_v_polynomial<T: FloatLike, const D: usize>(
 
     for i in 0..num_loops {
         for j in i + 1..num_loops {
-            res -= Into::<T>::into(2.) * u_vectors[i].dot(&u_vectors[j]) * inverse_l[(i, j)]
+            res -= Into::<T>::into(2.) * u_vectors[i].dot(&u_vectors[j]) * inverse_l[(i, j)];
         }
     }
 

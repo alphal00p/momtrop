@@ -78,10 +78,11 @@ impl TropicalGraph {
         let connected_compoenents = self.get_connected_components(edges_in_subgraph);
 
         let is_momentum_spanning = connected_compoenents.iter().any(|component| {
-            let mut edges_in_connected_subgraph = component.contains_edges();
-            self.external_vertices
-                .iter()
-                .all(|&v| edges_in_connected_subgraph.any(|i| self.topology[i].contains_vertex(v)))
+            self.external_vertices.iter().all(|&v| {
+                component
+                    .contains_edges()
+                    .any(|i| self.topology[i].contains_vertex(v))
+            })
         });
 
         is_mass_spanning && is_momentum_spanning
