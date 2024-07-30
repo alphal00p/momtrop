@@ -49,6 +49,7 @@ pub struct TropicalSampleResult<T: FloatLike> {
     pub u: T,
     pub v: T,
     pub prefactor: T,
+    pub jacobian: T,
 }
 
 impl Graph {

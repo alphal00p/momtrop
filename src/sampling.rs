@@ -97,13 +97,26 @@ pub fn sample<T: FloatLike + Into<f64>>(
         println!("u: {}", decomposed_l_matrix.determinant);
     }
 
+    let u_trop = permatuhedral_sample.u_trop;
+    let v_trop = permatuhedral_sample.v_trop;
+    let u = decomposed_l_matrix.determinant;
+    let v = v_polynomial;
+    let prefactor = i_trop * gamma_omega / denom;
+
+    let jacobian = (u_trop / u).powf(Into::<T>::into(
+        tropical_subgraph_table.dimension as f64 / 2.0,
+    )) * (v_trop / v)
+        .powf(Into::<T>::into(tropical_subgraph_table.tropical_graph.dod))
+        * prefactor;
+
     TropicalSampleResult {
         loop_momenta,
-        u_trop: permatuhedral_sample.u_trop,
-        v_trop: permatuhedral_sample.v_trop,
-        u: decomposed_l_matrix.determinant,
-        v: v_polynomial,
-        prefactor: i_trop * gamma_omega / denom,
+        u_trop,
+        v_trop,
+        u,
+        v,
+        prefactor,
+        jacobian,
     }
 }
 
