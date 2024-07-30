@@ -158,4 +158,8 @@ impl SampleGenerator {
     pub fn iter_edge_weights(&self) -> impl Iterator<Item = f64> + '_ {
         self.table.tropical_graph.topology.iter().map(|e| e.weight)
     }
+
+    pub fn get_num_edges(&self) -> usize {
+        self.table.tropical_graph.topology.len()
+    }
 }
