@@ -44,11 +44,7 @@ fn integrate_massless_triangle() {
 
     let n_samples = 1000000;
 
-    let edge_data = vec![
-        (None, Vector::new()),
-        (None, p1.clone()),
-        (None, (&p1 + &p2).clone()),
-    ];
+    let edge_data = vec![(None, Vector::new()), (None, p1), (None, (&p1 + &p2))];
 
     let p10 = 1.0;
     let p20 = 1.0;

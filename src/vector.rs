@@ -3,7 +3,7 @@ use f128::f128;
 use crate::float::FloatLike;
 use std::ops::{Add, AddAssign, Index, IndexMut, Mul, Sub};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Vector<T: FloatLike, const D: usize> {
     elements: [T; D],
 }
@@ -95,7 +95,7 @@ impl<T: FloatLike, const D: usize> Mul<T> for &Vector<T, D> {
     type Output = Vector<T, D>;
 
     fn mul(self, rhs: T) -> Self::Output {
-        let mut res = Self::Output::new();
+        let mut res = *self;
 
         for i in 0..D {
             res[i] *= rhs;
