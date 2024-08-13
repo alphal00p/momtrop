@@ -29,7 +29,7 @@ pub fn sample<T: FloatLike + Into<f64>, const D: usize>(
     let l_matrix = compute_l_matrix(&permatuhedral_sample.x, loop_signature);
     let decomposed_l_matrix = l_matrix
         .decompose_for_tropical()
-        .unwrap_or_else(|err| panic!("Matrix algorithm failed: {err} for x_space_point: {:?}", x_space_point));
+        .unwrap_or_else(|err| panic!("Matrix algorithm failed: {err} for x_space_point: {:?} \n Feynman ParametersL {:?}", x_space_point, permatuhedral_sample.x));
 
     let lambda = Into::<T>::into(inverse_gamma_lr(
         tropical_subgraph_table.tropical_graph.dod,
