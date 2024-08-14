@@ -50,7 +50,9 @@ fn integrate_massless_triangle() {
     let p20 = 1.0;
 
     for _ in 0..n_samples {
-        let sample = sampler.generate_sample_from_rng(edge_data.clone(), false, &mut rng);
+        let sample = sampler
+            .generate_sample_from_rng(edge_data.clone(), false, &mut rng)
+            .unwrap();
 
         let energy_0 = energy_0(&sample.loop_momenta[0]);
         let energy_1 = energy_1(&sample.loop_momenta[0], &p1);

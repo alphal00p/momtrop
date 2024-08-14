@@ -42,10 +42,12 @@ fn test_prec_eq() {
 
     let x_space_point = vec![0.1; sampler.get_dimension()];
 
-    let sample =
-        sampler.generate_sample_from_x_space_point(&x_space_point, edge_data.clone(), false);
+    let sample = sampler
+        .generate_sample_from_x_space_point(&x_space_point, edge_data.clone(), false)
+        .unwrap();
     let sample_f128 = sampler
         .generate_sample_f128_from_x_space_point(&x_space_point, edge_data.clone(), false)
+        .unwrap()
         .downcast();
 
     assert_approx_eq_sample(sample, sample_f128, 1.0e-15);
