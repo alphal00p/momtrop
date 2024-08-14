@@ -63,6 +63,11 @@ impl<T: FloatLike, const D: usize> Vector<T, D> {
     pub fn len(&self) -> usize {
         self.elements.len()
     }
+
+    #[inline]
+    pub fn get_elements(&self) -> [T; D] {
+        self.elements
+    }
 }
 
 impl<T: FloatLike, const D: usize> Index<usize> for Vector<T, D> {

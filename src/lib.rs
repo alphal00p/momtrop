@@ -43,6 +43,7 @@ pub struct Edge {
     pub weight: f64,
 }
 
+#[derive(Debug, Clone)]
 pub struct TropicalSampleResult<T: FloatLike, const D: usize> {
     pub loop_momenta: Vec<Vector<T, D>>,
     pub u_trop: T,
@@ -53,7 +54,7 @@ pub struct TropicalSampleResult<T: FloatLike, const D: usize> {
 }
 
 impl<const D: usize> TropicalSampleResult<f128, D> {
-    fn downcast(&self) -> TropicalSampleResult<f64, D> {
+    pub fn downcast(&self) -> TropicalSampleResult<f64, D> {
         TropicalSampleResult {
             loop_momenta: self.loop_momenta.iter().map(|v| v.downcast()).collect_vec(),
             u_trop: self.u_trop.into(),
