@@ -102,6 +102,7 @@ impl<const D: usize> SampleGenerator<D> {
         &self,
         x_space_point: &[f64],
         edge_data: Vec<(Option<f64>, vector::Vector<f64, D>)>,
+        upcast_on_failure: bool,
         print_debug_info: bool,
     ) -> Result<TropicalSampleResult<f64, D>, SamplingError> {
         let sample = sample::<f64, D>(
@@ -114,25 +115,32 @@ impl<const D: usize> SampleGenerator<D> {
 
         match sample {
             Ok(sample) => Ok(sample),
-            Err(sampling_error) => match sampling_error {
-                SamplingError::MatrixError(matrix_error) => match matrix_error {
-                    MatrixError::ZeroDet => {
-                        let res = self.generate_sample_f128_from_x_space_point(
-                            x_space_point,
-                            edge_data,
-                            print_debug_info,
-                        );
+            Err(sampling_error) => {
+                if upcast_on_failure {
+                    match sampling_error {
+                        SamplingError::MatrixError(matrix_error) => match matrix_error {
+                            MatrixError::ZeroDet => {
+                                let res = self.generate_sample_f128_from_x_space_point(
+                                    x_space_point,
+                                    edge_data,
+                                    print_debug_info,
+                                );
 
-                        res.map(|res| res.downcast())
+                                res.map(|res| res.downcast())
+                            }
+                        },
                     }
-                },
-            },
+                } else {
+                    Err(sampling_error)
+                }
+            }
         }
     }
 
     pub fn generate_sample_from_rng<R: Rng>(
         &self,
         edge_data: Vec<(Option<f64>, vector::Vector<f64, D>)>,
+        upcast_on_failure: bool,
         print_debug_info: bool,
         rng: &mut R,
     ) -> Result<TropicalSampleResult<f64, D>, SamplingError> {
@@ -141,7 +149,12 @@ impl<const D: usize> SampleGenerator<D> {
             .take(num_vars)
             .collect_vec();
 
-        self.generate_sample_from_x_space_point(&x_space_point, edge_data, print_debug_info)
+        self.generate_sample_from_x_space_point(
+            &x_space_point,
+            edge_data,
+            print_debug_info,
+            upcast_on_failure,
+        )
     }
 
     pub fn generate_sample_f128_from_x_space_point(

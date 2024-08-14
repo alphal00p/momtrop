@@ -43,7 +43,7 @@ fn test_prec_eq() {
     let x_space_point = vec![0.1; sampler.get_dimension()];
 
     let sample = sampler
-        .generate_sample_from_x_space_point(&x_space_point, edge_data.clone(), false)
+        .generate_sample_from_x_space_point(&x_space_point, edge_data.clone(), false, true)
         .unwrap();
     let sample_f128 = sampler
         .generate_sample_f128_from_x_space_point(&x_space_point, edge_data.clone(), false)
