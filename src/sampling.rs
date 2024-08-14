@@ -27,9 +27,12 @@ pub fn sample<T: FloatLike + Into<f64>, const D: usize>(
         permatuhedral_sampling(tropical_subgraph_table, &mut mimic_rng, print_debug_info);
 
     let l_matrix = compute_l_matrix(&permatuhedral_sample.x, loop_signature);
-    let decomposed_l_matrix = l_matrix
-        .decompose_for_tropical()
-        .unwrap_or_else(|err| panic!("Matrix algorithm failed: {err} for x_space_point: {:?} \n Feynman ParametersL {:?}", x_space_point, permatuhedral_sample.x));
+    let decomposed_l_matrix = l_matrix.decompose_for_tropical().unwrap_or_else(|err| {
+        panic!(
+            "Matrix algorithm failed: {err} for x_space_point: {:?} \n Feynman ParametersL {:?}",
+            x_space_point, permatuhedral_sample.x
+        )
+    });
 
     let lambda = Into::<T>::into(inverse_gamma_lr(
         tropical_subgraph_table.tropical_graph.dod,
@@ -186,8 +189,8 @@ fn permatuhedral_sampling<T: FloatLike>(
 
     if print_debug_info {
         println!("sampled feynman parameters: {:?}", x_vec);
-        println!("u_trop before rescaling: {}", u_trop);
-        println!("v_trop before rescaling: {}", v_trop);
+        println!("u_trop before rescaling: {:+16e}", u_trop);
+        println!("v_trop before rescaling: {:+16e}", v_trop);
     }
 
     u_trop = T::one();

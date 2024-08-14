@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Display};
+use std::fmt::{Debug, Display, LowerExp};
 use std::iter::Sum;
 use std::ops::{Add, AddAssign, Div, MulAssign, Sub, SubAssign};
 
@@ -24,6 +24,7 @@ pub trait FloatLike:
     + FloatConst
     + Sum
     + Debug
+    + LowerExp
 {
 }
 
