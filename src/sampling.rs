@@ -1,7 +1,7 @@
 use itertools::{izip, Itertools};
 
 use super::TropicalSubgraphTable;
-use crate::matrix::SquareMatrix;
+use crate::matrix::{MatrixError, SquareMatrix};
 use crate::mimic_rng::MimicRng;
 use crate::vector::Vector;
 use crate::TropicalSampleResult;
@@ -13,13 +13,18 @@ fn box_muller<T: FloatLike>(x1: T, x2: T) -> (T, T) {
     (r * theta.cos(), r * theta.sin())
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum SamplingError {
+    MatrixError(MatrixError),
+}
+
 pub fn sample<T: FloatLike + Into<f64>, const D: usize>(
     tropical_subgraph_table: &TropicalSubgraphTable,
     x_space_point: &[T],
     loop_signature: &[Vec<isize>],
-    edge_data: Vec<(Option<T>, Vector<T, D>)>,
+    edge_data: &[(Option<T>, Vector<T, D>)],
     print_debug_info: bool,
-) -> TropicalSampleResult<T, D> {
+) -> Result<TropicalSampleResult<T, D>, SamplingError> {
     let num_loops = tropical_subgraph_table.tropical_graph.num_loops;
 
     let mut mimic_rng = MimicRng::new(x_space_point);
@@ -27,12 +32,12 @@ pub fn sample<T: FloatLike + Into<f64>, const D: usize>(
         permatuhedral_sampling(tropical_subgraph_table, &mut mimic_rng, print_debug_info);
 
     let l_matrix = compute_l_matrix(&permatuhedral_sample.x, loop_signature);
-    let decomposed_l_matrix = l_matrix.decompose_for_tropical().unwrap_or_else(|err| {
-        panic!(
-            "Matrix algorithm failed: {err} for x_space_point: {:?} \n Feynman ParametersL {:?}",
-            x_space_point, permatuhedral_sample.x
-        )
-    });
+    let decomposed_l_matrix = match l_matrix.decompose_for_tropical() {
+        Ok(decomposition_result) => decomposition_result,
+        Err(error) => {
+            return Err(SamplingError::MatrixError(error));
+        }
+    };
 
     let lambda = Into::<T>::into(inverse_gamma_lr(
         tropical_subgraph_table.tropical_graph.dod,
@@ -46,10 +51,10 @@ pub fn sample<T: FloatLike + Into<f64>, const D: usize>(
     }
 
     let (edge_masses, edge_shifts): (Vec<T>, Vec<Vector<T, D>>) = edge_data
-        .into_iter()
+        .iter()
         .map(|(option_mass, edge_shift)| {
             if let Some(mass) = option_mass {
-                (mass, edge_shift)
+                (*mass, edge_shift)
             } else {
                 (T::zero(), edge_shift)
             }
@@ -92,14 +97,14 @@ pub fn sample<T: FloatLike + Into<f64>, const D: usize>(
         .powf(Into::<T>::into(tropical_subgraph_table.tropical_graph.dod))
         * Into::<T>::into(tropical_subgraph_table.cached_factor);
 
-    TropicalSampleResult {
+    Ok(TropicalSampleResult {
         loop_momenta,
         u_trop,
         v_trop,
         u,
         v,
         jacobian,
-    }
+    })
 }
 
 struct PermatuhedralSamplingResult<T> {

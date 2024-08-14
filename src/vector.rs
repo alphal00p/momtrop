@@ -1,6 +1,5 @@
-use f128::f128;
-
 use crate::float::FloatLike;
+use f128::f128;
 use std::ops::{Add, AddAssign, Index, IndexMut, Mul, Sub};
 
 #[derive(Clone, Copy, Debug)]
@@ -140,6 +139,19 @@ impl<T: FloatLike, const D: usize> AddAssign for Vector<T, D> {
     fn add_assign(&mut self, rhs: Self) {
         for i in 0..D {
             self[i] += rhs[i];
+        }
+    }
+}
+
+impl<const D: usize> Vector<f128, D> {
+    pub fn downcast(&self) -> Vector<f64, D> {
+        let mut new_elements: [f64; D] = [0.0; D];
+        for (new_element, out_element) in new_elements.iter_mut().zip(self.elements) {
+            *new_element = out_element.into();
+        }
+
+        Vector {
+            elements: new_elements,
         }
     }
 }

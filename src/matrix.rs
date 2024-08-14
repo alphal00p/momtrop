@@ -10,6 +10,11 @@ pub struct SquareMatrix<T> {
     dim: usize,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum MatrixError {
+    ZeroDet,
+}
+
 impl<T> Index<(usize, usize)> for SquareMatrix<T> {
     type Output = T;
 
@@ -101,7 +106,7 @@ impl<T: FloatLike> SquareMatrix<T> {
     /// Performs operations on a matrix for tropical sampling
     /// # Errors
     /// Returns an error if the matrix is not invertible
-    pub fn decompose_for_tropical(&self) -> Result<DecompositionResult<T>, &str> {
+    pub fn decompose_for_tropical(&self) -> Result<DecompositionResult<T>, MatrixError> {
         // start cholesky decomposition
         let mut q: SquareMatrix<T> = SquareMatrix::new_zeros(self.dim);
 
@@ -138,7 +143,7 @@ impl<T: FloatLike> SquareMatrix<T> {
         let determinant = det_q * det_q;
 
         if det_q == T::zero() {
-            return Err("Determinant of Q is zero!");
+            return Err(MatrixError::ZeroDet);
         }
 
         // the matrix N is defined through Q = D(I + N)

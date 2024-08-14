@@ -3,9 +3,10 @@ use std::iter::repeat_with;
 use f128::f128;
 use float::FloatLike;
 use itertools::Itertools;
+use matrix::MatrixError;
 use preprocessing::{TropicalGraph, TropicalSubgraphTable};
 use rand::Rng;
-use sampling::sample;
+use sampling::{sample, SamplingError};
 use serde::{Deserialize, Serialize};
 use vector::Vector;
 
@@ -51,6 +52,19 @@ pub struct TropicalSampleResult<T: FloatLike, const D: usize> {
     pub jacobian: T,
 }
 
+impl<const D: usize> TropicalSampleResult<f128, D> {
+    fn downcast(&self) -> TropicalSampleResult<f64, D> {
+        TropicalSampleResult {
+            loop_momenta: self.loop_momenta.iter().map(|v| v.downcast()).collect_vec(),
+            u_trop: self.u_trop.into(),
+            v_trop: self.v_trop.into(),
+            u: self.u.into(),
+            v: self.v.into(),
+            jacobian: self.jacobian.into(),
+        }
+    }
+}
+
 impl Graph {
     pub fn build_sampler<const D: usize>(
         self,
@@ -89,13 +103,30 @@ impl<const D: usize> SampleGenerator<D> {
         edge_data: Vec<(Option<f64>, vector::Vector<f64, D>)>,
         print_debug_info: bool,
     ) -> TropicalSampleResult<f64, D> {
-        sample::<f64, D>(
+        let sample = sample::<f64, D>(
             &self.table,
             x_space_point,
             &self.loop_signature,
-            edge_data,
+            &edge_data,
             print_debug_info,
-        )
+        );
+
+        match sample {
+            Ok(sample) => sample,
+            Err(sampling_error) => match sampling_error {
+                SamplingError::MatrixError(matrix_error) => match matrix_error {
+                    MatrixError::ZeroDet => {
+                        let res = self.generate_sample_f128_from_x_space_point(
+                            x_space_point,
+                            edge_data,
+                            print_debug_info,
+                        );
+
+                        res.downcast()
+                    }
+                },
+            },
+        }
     }
 
     pub fn generate_sample_from_rng<R: Rng>(
@@ -122,15 +153,16 @@ impl<const D: usize> SampleGenerator<D> {
         let upcasted_edge_data = edge_data
             .into_iter()
             .map(|(mass, edge_shift)| (mass.map(f128::new), edge_shift.upcast()))
-            .collect();
+            .collect_vec();
 
         sample::<f128, D>(
             &self.table,
             &upcasted_xspace_point,
             &self.loop_signature,
-            upcasted_edge_data,
+            &upcasted_edge_data,
             print_debug_info,
         )
+        .unwrap()
     }
 
     pub fn generate_sample_f128_from_rng<R: Rng>(
