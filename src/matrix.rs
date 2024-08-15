@@ -111,6 +111,10 @@ impl<T: FloatLike> SquareMatrix<T> {
         &self,
         settings: &TropicalSamplingSettings,
     ) -> Result<DecompositionResult<T>, MatrixError> {
+        if settings.print_debug_info {
+            println!("starting cholesky");
+        }
+
         // start cholesky decomposition
         let mut q: SquareMatrix<T> = SquareMatrix::new_zeros(self.dim);
 
@@ -204,12 +208,24 @@ impl<T: FloatLike> SquareMatrix<T> {
         let inverse = &q_transposed_inverse * &inverse_q;
 
         if let Some(tolerance) = settings.matrix_stability_test {
+            if settings.print_debug_info {
+                println!("Performing matrix inversion quality");
+            }
+
             let approx_idendity = &inverse * self;
             let true_identity = Self::new_identity(self.dim);
             let zero = &approx_idendity - &true_identity;
             let error = zero.l21_norm();
 
+            if settings.print_debug_info {
+                println!("error: {:+16e}", error);
+            }
+
             if Into::<f64>::into(error) > tolerance {
+                if settings.print_debug_info {
+                    println!("Inversion unstable");
+                }
+
                 return Err(MatrixError::Unstable);
             }
         }
