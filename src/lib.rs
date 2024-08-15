@@ -23,8 +23,8 @@ pub const MAX_VERTICES: usize = 256;
 
 #[derive(Debug)]
 pub struct TropicalSamplingSettings {
-    upcast_on_failure: bool,
-    print_debug_info: bool,
+    pub upcast_on_failure: bool,
+    pub print_debug_info: bool,
 }
 
 impl Default for TropicalSamplingSettings {
