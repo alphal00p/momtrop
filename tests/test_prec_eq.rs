@@ -1,4 +1,6 @@
-use momtrop::{vector::Vector, Edge, Graph, SampleGenerator, TropicalSampleResult};
+use momtrop::{
+    vector::Vector, Edge, Graph, SampleGenerator, TropicalSampleResult, TropicalSamplingSettings,
+};
 
 #[test]
 fn test_prec_eq() {
@@ -41,12 +43,13 @@ fn test_prec_eq() {
     ];
 
     let x_space_point = vec![0.1; sampler.get_dimension()];
+    let settings = TropicalSamplingSettings::default();
 
     let sample = sampler
-        .generate_sample_from_x_space_point(&x_space_point, edge_data.clone(), false, true)
+        .generate_sample_from_x_space_point(&x_space_point, edge_data.clone(), &settings)
         .unwrap();
     let sample_f128 = sampler
-        .generate_sample_f128_from_x_space_point(&x_space_point, edge_data.clone(), false)
+        .generate_sample_f128_from_x_space_point(&x_space_point, edge_data.clone(), &settings)
         .unwrap()
         .downcast();
 

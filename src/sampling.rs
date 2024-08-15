@@ -4,8 +4,8 @@ use super::TropicalSubgraphTable;
 use crate::matrix::{MatrixError, SquareMatrix};
 use crate::mimic_rng::MimicRng;
 use crate::vector::Vector;
-use crate::TropicalSampleResult;
 use crate::{float::FloatLike, gamma::inverse_gamma_lr};
+use crate::{TropicalSampleResult, TropicalSamplingSettings};
 
 fn box_muller<T: FloatLike>(x1: T, x2: T) -> (T, T) {
     let r = (-Into::<T>::into(2.) * x1.ln()).sqrt();
@@ -23,13 +23,13 @@ pub fn sample<T: FloatLike + Into<f64>, const D: usize>(
     x_space_point: &[T],
     loop_signature: &[Vec<isize>],
     edge_data: &[(Option<T>, Vector<T, D>)],
-    print_debug_info: bool,
+    settings: &TropicalSamplingSettings,
 ) -> Result<TropicalSampleResult<T, D>, SamplingError> {
     let num_loops = tropical_subgraph_table.tropical_graph.num_loops;
 
     let mut mimic_rng = MimicRng::new(x_space_point);
     let permatuhedral_sample =
-        permatuhedral_sampling(tropical_subgraph_table, &mut mimic_rng, print_debug_info);
+        permatuhedral_sampling(tropical_subgraph_table, &mut mimic_rng, settings);
 
     let l_matrix = compute_l_matrix(&permatuhedral_sample.x, loop_signature);
     let decomposed_l_matrix = match l_matrix.decompose_for_tropical() {
@@ -46,7 +46,7 @@ pub fn sample<T: FloatLike + Into<f64>, const D: usize>(
         5.0,
     ));
 
-    if print_debug_info {
+    if settings.print_debug_info {
         println!("lambda: {}", lambda);
     }
 
@@ -81,7 +81,7 @@ pub fn sample<T: FloatLike + Into<f64>, const D: usize>(
         &u_vectors,
     );
 
-    if print_debug_info {
+    if settings.print_debug_info {
         println!("v: {}", v_polynomial);
         println!("u: {}", decomposed_l_matrix.determinant);
     }
@@ -119,7 +119,7 @@ struct PermatuhedralSamplingResult<T> {
 fn permatuhedral_sampling<T: FloatLike>(
     tropical_subgraph_table: &TropicalSubgraphTable,
     rng: &mut MimicRng<T>,
-    print_debug_info: bool,
+    settings: &TropicalSamplingSettings,
 ) -> PermatuhedralSamplingResult<T> {
     let mut kappa = T::one();
     let mut x_vec = vec![T::zero(); tropical_subgraph_table.tropical_graph.topology.len()];
@@ -186,13 +186,13 @@ fn permatuhedral_sampling<T: FloatLike>(
         .inv(),
     );
 
-    if print_debug_info {
+    if settings.print_debug_info {
         println!("feynman parameters before rescaling: {:?}", x_vec);
     }
 
     x_vec.iter_mut().for_each(|x| *x *= scaling);
 
-    if print_debug_info {
+    if settings.print_debug_info {
         println!("sampled feynman parameters: {:?}", x_vec);
         println!("u_trop before rescaling: {:+16e}", u_trop);
         println!("v_trop before rescaling: {:+16e}", v_trop);

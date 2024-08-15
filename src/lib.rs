@@ -1,4 +1,4 @@
-use std::iter::repeat_with;
+use std::{default, iter::repeat_with};
 
 use f128::f128;
 use float::FloatLike;
@@ -20,6 +20,21 @@ pub mod vector;
 
 pub const MAX_EDGES: usize = 64;
 pub const MAX_VERTICES: usize = 256;
+
+#[derive(Debug)]
+pub struct TropicalSamplingSettings {
+    upcast_on_failure: bool,
+    print_debug_info: bool,
+}
+
+impl Default for TropicalSamplingSettings {
+    fn default() -> Self {
+        Self {
+            upcast_on_failure: true,
+            print_debug_info: false,
+        }
+    }
+}
 
 #[cfg(test)]
 fn assert_approx_eq(res: f64, target: f64, tolerance: f64) {
@@ -102,28 +117,27 @@ impl<const D: usize> SampleGenerator<D> {
         &self,
         x_space_point: &[f64],
         edge_data: Vec<(Option<f64>, vector::Vector<f64, D>)>,
-        upcast_on_failure: bool,
-        print_debug_info: bool,
+        settings: &TropicalSamplingSettings,
     ) -> Result<TropicalSampleResult<f64, D>, SamplingError> {
         let sample = sample::<f64, D>(
             &self.table,
             x_space_point,
             &self.loop_signature,
             &edge_data,
-            print_debug_info,
+            settings,
         );
 
         match sample {
             Ok(sample) => Ok(sample),
             Err(sampling_error) => {
-                if upcast_on_failure {
+                if settings.upcast_on_failure {
                     match sampling_error {
                         SamplingError::MatrixError(matrix_error) => match matrix_error {
                             MatrixError::ZeroDet => {
                                 let res = self.generate_sample_f128_from_x_space_point(
                                     x_space_point,
                                     edge_data,
-                                    print_debug_info,
+                                    settings,
                                 );
 
                                 res.map(|res| res.downcast())
@@ -140,8 +154,7 @@ impl<const D: usize> SampleGenerator<D> {
     pub fn generate_sample_from_rng<R: Rng>(
         &self,
         edge_data: Vec<(Option<f64>, vector::Vector<f64, D>)>,
-        upcast_on_failure: bool,
-        print_debug_info: bool,
+        settings: &TropicalSamplingSettings,
         rng: &mut R,
     ) -> Result<TropicalSampleResult<f64, D>, SamplingError> {
         let num_vars = self.get_dimension();
@@ -149,19 +162,14 @@ impl<const D: usize> SampleGenerator<D> {
             .take(num_vars)
             .collect_vec();
 
-        self.generate_sample_from_x_space_point(
-            &x_space_point,
-            edge_data,
-            print_debug_info,
-            upcast_on_failure,
-        )
+        self.generate_sample_from_x_space_point(&x_space_point, edge_data, settings)
     }
 
     pub fn generate_sample_f128_from_x_space_point(
         &self,
         x_space_point: &[f64],
         edge_data: Vec<(Option<f64>, vector::Vector<f64, D>)>,
-        print_debug_info: bool,
+        settings: &TropicalSamplingSettings,
     ) -> Result<TropicalSampleResult<f128, D>, SamplingError> {
         let upcasted_xspace_point = x_space_point.iter().copied().map(f128::new).collect_vec();
         let upcasted_edge_data = edge_data
@@ -174,14 +182,14 @@ impl<const D: usize> SampleGenerator<D> {
             &upcasted_xspace_point,
             &self.loop_signature,
             &upcasted_edge_data,
-            print_debug_info,
+            settings,
         )
     }
 
     pub fn generate_sample_f128_from_rng<R: Rng>(
         &self,
         edge_data: Vec<(Option<f64>, vector::Vector<f64, D>)>,
-        print_debug_info: bool,
+        settings: &TropicalSamplingSettings,
         rng: &mut R,
     ) -> Result<TropicalSampleResult<f128, D>, SamplingError> {
         let num_vars = self.get_dimension();
@@ -189,7 +197,7 @@ impl<const D: usize> SampleGenerator<D> {
             .take(num_vars)
             .collect_vec();
 
-        self.generate_sample_f128_from_x_space_point(&x_space_point, edge_data, print_debug_info)
+        self.generate_sample_f128_from_x_space_point(&x_space_point, edge_data, settings)
     }
 
     pub fn get_dimension(&self) -> usize {
