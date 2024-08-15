@@ -1,4 +1,4 @@
-use std::{default, iter::repeat_with};
+use std::iter::repeat_with;
 
 use f128::f128;
 use float::FloatLike;
