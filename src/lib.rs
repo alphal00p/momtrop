@@ -24,6 +24,7 @@ pub const MAX_VERTICES: usize = 256;
 #[derive(Debug)]
 pub struct TropicalSamplingSettings {
     pub upcast_on_failure: bool,
+    pub matrix_stability_test: bool,
     pub print_debug_info: bool,
 }
 
@@ -31,6 +32,7 @@ impl Default for TropicalSamplingSettings {
     fn default() -> Self {
         Self {
             upcast_on_failure: true,
+            matrix_stability_test: false,
             print_debug_info: false,
         }
     }
