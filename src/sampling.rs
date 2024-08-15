@@ -32,7 +32,7 @@ pub fn sample<T: FloatLike + Into<f64>, const D: usize>(
         permatuhedral_sampling(tropical_subgraph_table, &mut mimic_rng, settings);
 
     let l_matrix = compute_l_matrix(&permatuhedral_sample.x, loop_signature);
-    let decomposed_l_matrix = match l_matrix.decompose_for_tropical() {
+    let decomposed_l_matrix = match l_matrix.decompose_for_tropical(settings) {
         Ok(decomposition_result) => decomposition_result,
         Err(error) => {
             return Err(SamplingError::MatrixError(error));

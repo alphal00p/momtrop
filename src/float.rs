@@ -22,6 +22,7 @@ pub trait FloatLike:
     + MulAssign
     + Add<Self, Output = Self>
     + FloatConst
+    + Into<f64>
     + Sum
     + Debug
     + LowerExp

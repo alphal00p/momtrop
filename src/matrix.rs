@@ -1,7 +1,7 @@
 use smallvec::SmallVec;
 use std::ops::{Add, Index, IndexMut, Mul, Sub};
 
-use crate::float::FloatLike;
+use crate::{float::FloatLike, TropicalSamplingSettings};
 
 #[derive(Debug, Clone, Default)]
 /// square symmetric matrix for use in the tropical sampling algorithm
@@ -13,6 +13,7 @@ pub struct SquareMatrix<T> {
 #[derive(Clone, Copy, Debug)]
 pub enum MatrixError {
     ZeroDet,
+    Unstable,
 }
 
 impl<T> Index<(usize, usize)> for SquareMatrix<T> {
@@ -106,7 +107,10 @@ impl<T: FloatLike> SquareMatrix<T> {
     /// Performs operations on a matrix for tropical sampling
     /// # Errors
     /// Returns an error if the matrix is not invertible
-    pub fn decompose_for_tropical(&self) -> Result<DecompositionResult<T>, MatrixError> {
+    pub fn decompose_for_tropical(
+        &self,
+        settings: &TropicalSamplingSettings,
+    ) -> Result<DecompositionResult<T>, MatrixError> {
         // start cholesky decomposition
         let mut q: SquareMatrix<T> = SquareMatrix::new_zeros(self.dim);
 
@@ -199,6 +203,17 @@ impl<T: FloatLike> SquareMatrix<T> {
 
         let inverse = &q_transposed_inverse * &inverse_q;
 
+        if let Some(tolerance) = settings.matrix_stability_test {
+            let approx_idendity = &inverse * self;
+            let true_identity = Self::new_identity(self.dim);
+            let zero = &approx_idendity - &true_identity;
+            let error = zero.l21_norm();
+
+            if Into::<f64>::into(error) > tolerance {
+                return Err(MatrixError::Unstable);
+            }
+        }
+
         Ok(DecompositionResult {
             determinant,
             inverse,
@@ -208,6 +223,28 @@ impl<T: FloatLike> SquareMatrix<T> {
 
     pub fn get_dim(&self) -> usize {
         self.dim
+    }
+
+    fn new_identity(dim: usize) -> Self {
+        let mut res = Self::new_zeros(dim);
+        for i in 0..dim {
+            res[(i, i)] = T::one();
+        }
+        res
+    }
+
+    fn l21_norm(&self) -> T {
+        let mut res = T::zero();
+
+        for j in 0..self.dim {
+            let mut vec_norm = T::zero();
+            for i in 0..self.dim {
+                vec_norm += self[(i, j)] * self[(i, j)];
+            }
+            res += vec_norm.sqrt();
+        }
+
+        res
     }
 }
 
@@ -229,13 +266,14 @@ mod tests {
     #[test]
     fn test_decompose_for_tropical_2x2() {
         let mut test_matrix = SquareMatrix::new_zeros(2);
+        let settings = TropicalSamplingSettings::default();
 
         test_matrix[(0, 0)] = 2.0;
         test_matrix[(1, 1)] = 4.0;
         test_matrix[(0, 1)] = 1.0;
         test_matrix[(1, 0)] = 1.0;
 
-        let decomposition_result = test_matrix.decompose_for_tropical().unwrap();
+        let decomposition_result = test_matrix.decompose_for_tropical(&settings).unwrap();
 
         assert_approx_eq(decomposition_result.determinant, 7.0, EPSILON);
 
@@ -250,13 +288,14 @@ mod tests {
     #[test]
     fn test_decompose_for_tropical_f128_2x2() {
         let mut test_matrix = SquareMatrix::new_zeros(2);
+        let settings = TropicalSamplingSettings::default();
 
         test_matrix[(0, 0)] = f128::new(2.0);
         test_matrix[(1, 1)] = f128::new(4.0);
         test_matrix[(0, 1)] = f128::new(1.0);
         test_matrix[(1, 0)] = f128::new(1.0);
 
-        let decomposition_result = test_matrix.decompose_for_tropical().unwrap();
+        let decomposition_result = test_matrix.decompose_for_tropical(&settings).unwrap();
 
         assert_approx_eq(
             Into::<f64>::into(decomposition_result.determinant),
@@ -275,6 +314,7 @@ mod tests {
     #[test]
     fn test_decompose_for_tropical_4x4() {
         let mut wilson_matrix = SquareMatrix::new_zeros(4);
+        let settings = TropicalSamplingSettings::default();
 
         wilson_matrix[(0, 0)] = 5.0;
         wilson_matrix[(1, 1)] = 10.0;
@@ -293,7 +333,7 @@ mod tests {
         wilson_matrix[(2, 3)] = 9.0;
         wilson_matrix[(3, 2)] = 9.0;
 
-        let decomposition_result = wilson_matrix.decompose_for_tropical().unwrap();
+        let decomposition_result = wilson_matrix.decompose_for_tropical(&settings).unwrap();
 
         let identity = &wilson_matrix * &decomposition_result.inverse;
 
@@ -313,6 +353,7 @@ mod tests {
     #[test]
     fn test_decompose_for_tropical_4x4_f128() {
         let mut wilson_matrix = SquareMatrix::new_zeros(4);
+        let settings = TropicalSamplingSettings::default();
 
         wilson_matrix[(0, 0)] = f128::new(5.0);
         wilson_matrix[(1, 1)] = f128::new(10.);
@@ -331,7 +372,7 @@ mod tests {
         wilson_matrix[(2, 3)] = f128::new(9.0);
         wilson_matrix[(3, 2)] = f128::new(9.0);
 
-        let decomposition_result = wilson_matrix.decompose_for_tropical().unwrap();
+        let decomposition_result = wilson_matrix.decompose_for_tropical(&settings).unwrap();
         let identity = &wilson_matrix * &decomposition_result.inverse;
 
         for row in 0..4 {

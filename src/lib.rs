@@ -3,7 +3,6 @@ use std::iter::repeat_with;
 use f128::f128;
 use float::FloatLike;
 use itertools::Itertools;
-use matrix::MatrixError;
 use preprocessing::{TropicalGraph, TropicalSubgraphTable};
 use rand::Rng;
 use sampling::{sample, SamplingError};
@@ -24,7 +23,7 @@ pub const MAX_VERTICES: usize = 256;
 #[derive(Debug)]
 pub struct TropicalSamplingSettings {
     pub upcast_on_failure: bool,
-    pub matrix_stability_test: bool,
+    pub matrix_stability_test: Option<f64>,
     pub print_debug_info: bool,
 }
 
@@ -32,7 +31,7 @@ impl Default for TropicalSamplingSettings {
     fn default() -> Self {
         Self {
             upcast_on_failure: true,
-            matrix_stability_test: false,
+            matrix_stability_test: None,
             print_debug_info: false,
         }
     }
@@ -134,17 +133,15 @@ impl<const D: usize> SampleGenerator<D> {
             Err(sampling_error) => {
                 if settings.upcast_on_failure {
                     match sampling_error {
-                        SamplingError::MatrixError(matrix_error) => match matrix_error {
-                            MatrixError::ZeroDet => {
-                                let res = self.generate_sample_f128_from_x_space_point(
-                                    x_space_point,
-                                    edge_data,
-                                    settings,
-                                );
+                        SamplingError::MatrixError(_matrix_error) => {
+                            let res = self.generate_sample_f128_from_x_space_point(
+                                x_space_point,
+                                edge_data,
+                                settings,
+                            );
 
-                                res.map(|res| res.downcast())
-                            }
-                        },
+                            res.map(|res| res.downcast())
+                        }
                     }
                 } else {
                     Err(sampling_error)
