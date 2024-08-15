@@ -214,4 +214,8 @@ impl<const D: usize> SampleGenerator<D> {
     pub fn get_num_edges(&self) -> usize {
         self.table.tropical_graph.topology.len()
     }
+
+    pub fn get_smallest_dod(&self) -> f64 {
+        self.table.get_smallest_dod()
+    }
 }

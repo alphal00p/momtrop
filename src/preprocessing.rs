@@ -2,6 +2,7 @@ use core::f64;
 
 use ahash::HashSet;
 use itertools::Itertools;
+use num::Zero;
 use serde::{Deserialize, Serialize};
 use statrs::function::gamma::gamma;
 
@@ -492,6 +493,15 @@ impl TropicalSubgraphTable {
         let num_gaussian_variables = loop_number * self.dimension;
 
         2 * num_edges - 1 + num_gaussian_variables + num_gaussian_variables % 2
+    }
+
+    pub fn get_smallest_dod(&self) -> f64 {
+        self.table
+            .iter()
+            .map(|entry| entry.generalized_dod)
+            .filter(|x| !x.is_zero())
+            .reduce(f64::min)
+            .unwrap()
     }
 }
 
