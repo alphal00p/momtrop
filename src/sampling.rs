@@ -1,6 +1,8 @@
 use itertools::{izip, Itertools};
 
 use super::TropicalSubgraphTable;
+#[cfg(feature = "log")]
+use crate::log::Logger;
 use crate::matrix::{MatrixError, SquareMatrix};
 use crate::mimic_rng::MimicRng;
 use crate::vector::Vector;
@@ -18,18 +20,24 @@ pub enum SamplingError {
     MatrixError(MatrixError),
 }
 
-pub fn sample<T: FloatLike + Into<f64>, const D: usize>(
+pub fn sample<T: FloatLike + Into<f64>, const D: usize, #[cfg(feature = "log")] L: Logger>(
     tropical_subgraph_table: &TropicalSubgraphTable,
     x_space_point: &[T],
     loop_signature: &[Vec<isize>],
     edge_data: &[(Option<T>, Vector<T, D>)],
     settings: &TropicalSamplingSettings,
+    #[cfg(feature = "log")] logger: &L,
 ) -> Result<TropicalSampleResult<T, D>, SamplingError> {
     let num_loops = tropical_subgraph_table.tropical_graph.num_loops;
 
     let mut mimic_rng = MimicRng::new(x_space_point);
-    let permatuhedral_sample =
-        permatuhedral_sampling(tropical_subgraph_table, &mut mimic_rng, settings);
+    let permatuhedral_sample = permatuhedral_sampling(
+        tropical_subgraph_table,
+        &mut mimic_rng,
+        settings,
+        #[cfg(feature = "log")]
+        logger,
+    );
 
     let l_matrix = compute_l_matrix(&permatuhedral_sample.x, loop_signature);
     let decomposed_l_matrix = match l_matrix.decompose_for_tropical(settings) {
@@ -47,7 +55,10 @@ pub fn sample<T: FloatLike + Into<f64>, const D: usize>(
     ));
 
     if settings.print_debug_info {
+        #[cfg(not(feature = "log"))]
         println!("lambda: {}", lambda);
+        #[cfg(feature = "log")]
+        logger.write("momtrop_lambda", &lambda.into())
     }
 
     let (edge_masses, edge_shifts): (Vec<T>, Vec<Vector<T, D>>) = edge_data
@@ -82,8 +93,16 @@ pub fn sample<T: FloatLike + Into<f64>, const D: usize>(
     );
 
     if settings.print_debug_info {
-        println!("v: {}", v_polynomial);
-        println!("u: {}", decomposed_l_matrix.determinant);
+        #[cfg(not(feature = "log"))]
+        {
+            println!("v: {}", v_polynomial);
+            println!("u: {}", decomposed_l_matrix.determinant);
+        }
+        #[cfg(feature = "log")]
+        {
+            logger.write("momtrop_v", &v_polynomial.into());
+            logger.write("momtrop_u", &decomposed_l_matrix.determinant.into())
+        }
     }
 
     let u_trop = permatuhedral_sample.u_trop;
@@ -116,10 +135,11 @@ struct PermatuhedralSamplingResult<T> {
 /// This function returns the feynman parameters for a given graph and sample point, it also computes u_trop and v_trop.
 /// A rescaling is performed for numerical stability, with this rescaling u_trop and v_trop always evaluate to 1.
 #[inline]
-fn permatuhedral_sampling<T: FloatLike>(
+fn permatuhedral_sampling<T: FloatLike, #[cfg(feature = "log")] L: Logger>(
     tropical_subgraph_table: &TropicalSubgraphTable,
     rng: &mut MimicRng<T>,
     settings: &TropicalSamplingSettings,
+    #[cfg(feature = "log")] logger: &L,
 ) -> PermatuhedralSamplingResult<T> {
     let mut kappa = T::one();
     let mut x_vec = vec![T::zero(); tropical_subgraph_table.tropical_graph.topology.len()];
@@ -187,15 +207,33 @@ fn permatuhedral_sampling<T: FloatLike>(
     );
 
     if settings.print_debug_info {
+        #[cfg(not(feature = "log"))]
         println!("feynman parameters before rescaling: {:?}", x_vec);
+        #[cfg(feature = "log")]
+        logger.write(
+            "momtrop_feynman_parameter_no_rescaling",
+            &x_vec.iter().map(|x| Into::<f64>::into(*x)).collect_vec(),
+        );
     }
 
     x_vec.iter_mut().for_each(|x| *x *= scaling);
 
     if settings.print_debug_info {
-        println!("sampled feynman parameters: {:?}", x_vec);
-        println!("u_trop before rescaling: {:+16e}", u_trop);
-        println!("v_trop before rescaling: {:+16e}", v_trop);
+        #[cfg(not(feature = "log"))]
+        {
+            println!("sampled feynman parameters: {:?}", x_vec);
+            println!("u_trop before rescaling: {:+16e}", u_trop);
+            println!("v_trop before rescaling: {:+16e}", v_trop);
+        }
+        #[cfg(feature = "log")]
+        {
+            logger.write(
+                "momtrop_feynman_parameter",
+                &x_vec.iter().map(|x| Into::<f64>::into(*x)).collect_vec(),
+            );
+            logger.write("momtrop_u_trop_no_rescaling", &u_trop.into());
+            logger.write("momtrop_v_trop_no_rescaling", &v_trop.into());
+        }
     }
 
     u_trop = T::one();
