@@ -1,6 +1,7 @@
 use momtrop::{vector::Vector, Edge, Graph, TropicalSamplingSettings};
 use rand::SeedableRng;
 
+/// integrate a massless triangle with LTD and tropicalsampling
 #[test]
 fn integrate_massless_triangle() {
     let weight = 2. / 3.;
