@@ -1,5 +1,6 @@
 use momtrop::{
-    vector::Vector, Edge, Graph, SampleGenerator, TropicalSampleResult, TropicalSamplingSettings,
+    log::DummyLogger, vector::Vector, Edge, Graph, SampleGenerator, TropicalSampleResult,
+    TropicalSamplingSettings,
 };
 
 #[test]
@@ -45,11 +46,26 @@ fn test_prec_eq() {
     let x_space_point = vec![0.1; sampler.get_dimension()];
     let settings = TropicalSamplingSettings::default();
 
+    #[cfg(feature = "log")]
+    let logger = DummyLogger {};
+
     let sample = sampler
-        .generate_sample_from_x_space_point(&x_space_point, edge_data.clone(), &settings)
+        .generate_sample_from_x_space_point(
+            &x_space_point,
+            edge_data.clone(),
+            &settings,
+            #[cfg(feature = "log")]
+            &logger,
+        )
         .unwrap();
     let sample_f128 = sampler
-        .generate_sample_f128_from_x_space_point(&x_space_point, edge_data.clone(), &settings)
+        .generate_sample_f128_from_x_space_point(
+            &x_space_point,
+            edge_data.clone(),
+            &settings,
+            #[cfg(feature = "log")]
+            &logger,
+        )
         .unwrap()
         .downcast();
 
