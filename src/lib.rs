@@ -1,5 +1,8 @@
 use std::iter::repeat_with;
 
+#[cfg(feature = "log")]
+use log::Logger;
+
 use f128::f128;
 use float::FloatLike;
 use itertools::Itertools;
@@ -11,6 +14,8 @@ use vector::Vector;
 
 mod float;
 pub mod gamma;
+#[cfg(feature = "log")]
+pub mod log;
 mod matrix;
 mod mimic_rng;
 mod preprocessing;
@@ -114,18 +119,21 @@ pub struct SampleGenerator<const D: usize> {
 }
 
 impl<const D: usize> SampleGenerator<D> {
-    pub fn generate_sample_from_x_space_point(
+    pub fn generate_sample_from_x_space_point<#[cfg(feature = "log")] L: Logger>(
         &self,
         x_space_point: &[f64],
         edge_data: Vec<(Option<f64>, vector::Vector<f64, D>)>,
         settings: &TropicalSamplingSettings,
+        #[cfg(feature = "log")] logger: &L,
     ) -> Result<TropicalSampleResult<f64, D>, SamplingError> {
-        let sample = sample::<f64, D>(
+        let sample = sample(
             &self.table,
             x_space_point,
             &self.loop_signature,
             &edge_data,
             settings,
+            #[cfg(feature = "log")]
+            logger,
         );
 
         match sample {
@@ -138,6 +146,8 @@ impl<const D: usize> SampleGenerator<D> {
                                 x_space_point,
                                 edge_data,
                                 settings,
+                                #[cfg(feature = "log")]
+                                logger,
                             );
 
                             res.map(|res| res.downcast())
@@ -150,25 +160,33 @@ impl<const D: usize> SampleGenerator<D> {
         }
     }
 
-    pub fn generate_sample_from_rng<R: Rng>(
+    pub fn generate_sample_from_rng<R: Rng, #[cfg(feature = "log")] L: Logger>(
         &self,
         edge_data: Vec<(Option<f64>, vector::Vector<f64, D>)>,
         settings: &TropicalSamplingSettings,
         rng: &mut R,
+        #[cfg(feature = "log")] logger: &L,
     ) -> Result<TropicalSampleResult<f64, D>, SamplingError> {
         let num_vars = self.get_dimension();
         let x_space_point = repeat_with(|| rng.gen::<f64>())
             .take(num_vars)
             .collect_vec();
 
-        self.generate_sample_from_x_space_point(&x_space_point, edge_data, settings)
+        self.generate_sample_from_x_space_point(
+            &x_space_point,
+            edge_data,
+            settings,
+            #[cfg(feature = "log")]
+            logger,
+        )
     }
 
-    pub fn generate_sample_f128_from_x_space_point(
+    pub fn generate_sample_f128_from_x_space_point<#[cfg(feature = "log")] L: Logger>(
         &self,
         x_space_point: &[f64],
         edge_data: Vec<(Option<f64>, vector::Vector<f64, D>)>,
         settings: &TropicalSamplingSettings,
+        #[cfg(feature = "log")] logger: &L,
     ) -> Result<TropicalSampleResult<f128, D>, SamplingError> {
         let upcasted_xspace_point = x_space_point.iter().copied().map(f128::new).collect_vec();
         let upcasted_edge_data = edge_data
@@ -176,27 +194,36 @@ impl<const D: usize> SampleGenerator<D> {
             .map(|(mass, edge_shift)| (mass.map(f128::new), edge_shift.upcast()))
             .collect_vec();
 
-        sample::<f128, D>(
+        sample(
             &self.table,
             &upcasted_xspace_point,
             &self.loop_signature,
             &upcasted_edge_data,
             settings,
+            #[cfg(feature = "log")]
+            logger,
         )
     }
 
-    pub fn generate_sample_f128_from_rng<R: Rng>(
+    pub fn generate_sample_f128_from_rng<R: Rng, #[cfg(feature = "log")] L: Logger>(
         &self,
         edge_data: Vec<(Option<f64>, vector::Vector<f64, D>)>,
         settings: &TropicalSamplingSettings,
         rng: &mut R,
+        #[cfg(feature = "log")] logger: &L,
     ) -> Result<TropicalSampleResult<f128, D>, SamplingError> {
         let num_vars = self.get_dimension();
         let x_space_point = repeat_with(|| rng.gen::<f64>())
             .take(num_vars)
             .collect_vec();
 
-        self.generate_sample_f128_from_x_space_point(&x_space_point, edge_data, settings)
+        self.generate_sample_f128_from_x_space_point(
+            &x_space_point,
+            edge_data,
+            settings,
+            #[cfg(feature = "log")]
+            logger,
+        )
     }
 
     pub fn get_dimension(&self) -> usize {

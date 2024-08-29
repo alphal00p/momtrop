@@ -30,6 +30,9 @@ fn criterion_benchmark(c: &mut Criterion) {
         externals,
     };
 
+    #[cfg(feature = "log")]
+    let logger = momtrop::log::DummyLogger {};
+
     let loop_signature = vec![vec![1]; 3];
     let sampler = graph.build_sampler(loop_signature, 3).unwrap();
     let mut rng = rand::rngs::StdRng::seed_from_u64(69);
@@ -43,7 +46,13 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     group.bench_function("triangle", |b| {
         b.iter(|| {
-            sampler.generate_sample_from_x_space_point(&x_space_point, edge_data.clone(), &settings)
+            sampler.generate_sample_from_x_space_point(
+                &x_space_point,
+                edge_data.clone(),
+                &settings,
+                #[cfg(feature = "log")]
+                &logger,
+            )
         })
     });
 }
