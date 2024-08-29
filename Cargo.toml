@@ -27,6 +27,5 @@ f128 = { git = "https://github.com/benruijl/f128" }
 statrs = "0.16.0"
 itertools = "0.12.1"
 rand = "0.8.5"
-fastrand = "2.1.0"
 criterion = "0.5.1"
 serde = { version = "1.0", features = ["derive"] }
