@@ -1,4 +1,4 @@
-use momtrop::{log::DummyLogger, vector::Vector, Edge, Graph, TropicalSamplingSettings};
+use momtrop::{vector::Vector, Edge, Graph, TropicalSamplingSettings};
 use rand::SeedableRng;
 
 #[test]
@@ -51,7 +51,7 @@ fn integrate_massless_triangle() {
 
     let settings = TropicalSamplingSettings::default();
     #[cfg(feature = "log")]
-    let logger = DummyLogger {};
+    let logger = momtrop::log::DummyLogger {};
 
     for _ in 0..n_samples {
         let sample = sampler

@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use momtrop::{log::DummyLogger, vector::Vector, Edge, Graph, TropicalSamplingSettings};
+use momtrop::{vector::Vector, Edge, Graph, TropicalSamplingSettings};
 use rand::{Rng, SeedableRng};
 
 fn criterion_benchmark(c: &mut Criterion) {
@@ -31,7 +31,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     };
 
     #[cfg(feature = "log")]
-    let logger = DummyLogger {};
+    let logger = momtrop::log::DummyLogger {};
 
     let loop_signature = vec![vec![1]; 3];
     let sampler = graph.build_sampler(loop_signature, 3).unwrap();

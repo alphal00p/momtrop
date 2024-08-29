@@ -1,6 +1,5 @@
 use momtrop::{
-    log::DummyLogger, vector::Vector, Edge, Graph, SampleGenerator, TropicalSampleResult,
-    TropicalSamplingSettings,
+    vector::Vector, Edge, Graph, SampleGenerator, TropicalSampleResult, TropicalSamplingSettings,
 };
 
 #[test]
@@ -47,7 +46,7 @@ fn test_prec_eq() {
     let settings = TropicalSamplingSettings::default();
 
     #[cfg(feature = "log")]
-    let logger = DummyLogger {};
+    let logger = momtrop::log::DummyLogger {};
 
     let sample = sampler
         .generate_sample_from_x_space_point(
