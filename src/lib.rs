@@ -20,8 +20,6 @@ mod matrix;
 mod mimic_rng;
 mod preprocessing;
 mod sampling;
-#[cfg(feature = "sympol")]
-mod symbolic_polynomail;
 pub mod vector;
 
 pub const MAX_EDGES: usize = 64;

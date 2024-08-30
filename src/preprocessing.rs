@@ -505,6 +505,75 @@ impl TropicalSubgraphTable {
     }
 }
 
+#[cfg(feature = "sympol")]
+mod symbolic_polynomial {
+    use itertools::Itertools;
+
+    use super::{TropicalGraph, TropicalSubGraphId};
+    use symbolica::atom::Atom;
+
+    impl TropicalSubGraphId {
+        fn complement(&self) -> Self {
+            let full_id = Self::new(self.num_edges);
+            let complement_id = self.id ^ full_id.id;
+            Self::from_id(complement_id, self.num_edges)
+        }
+    }
+
+    impl TropicalGraph {
+        fn get_spanning_trees<'a>(&'a self) -> impl Iterator<Item = TropicalSubGraphId> + 'a {
+            let poweset_size = 2usize.pow(self.topology.len() as u32);
+
+            // todo, replace this by a suitable lower and upper bound
+
+            let possible_subgraphs = (0..poweset_size)
+                .filter(|id| id.count_ones() as usize == self.topology.len() - self.num_loops)
+                .map(|id| TropicalSubGraphId::from_id(id, self.topology.len()));
+
+            possible_subgraphs.filter(|id| {
+                let edges_in_subgraph = id.contains_edges().collect_vec();
+                self.get_loop_number(&edges_in_subgraph) == 0
+                    && self.get_connected_components(&edges_in_subgraph).len() == 1
+            })
+        }
+
+        pub fn get_u_polynomial(&self) -> Atom {
+            let x = (0..self.topology.len())
+                .map(|e| Atom::parse(&format!("x{}", e)).unwrap())
+                .collect_vec();
+
+            let spanning_trees = self.get_spanning_trees();
+            spanning_trees
+                .map(|id| {
+                    let complement = id.complement();
+                    complement
+                        .contains_edges()
+                        .fold(Atom::new_num(1), |acc, e| acc * &x[e])
+                })
+                .fold(Atom::new(), |acc, t| acc + t)
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use itertools::Itertools;
+
+        use crate::preprocessing::TropicalSubGraphId;
+
+        #[test]
+        fn test_complement() {
+            let id = TropicalSubGraphId::from_edge_list(&[0, 3], 4);
+            let complement = id.complement();
+            let complement_edges = complement.contains_edges().collect_vec();
+
+            assert!(complement_edges.contains(&1));
+            assert!(complement_edges.contains(&2));
+            assert!(!complement_edges.contains(&0));
+            assert!(!complement_edges.contains(&3));
+        }
+    }
+}
+
 // some tests
 #[cfg(test)]
 mod tests {
@@ -1138,5 +1207,19 @@ mod tests {
         let i_tr = subgraph_table.table.last().unwrap().j_function;
 
         assert_approx_eq(i_tr, 1_818.303_855_640_347_1, TOLERANCE);
+    }
+
+    #[test]
+    #[cfg(feature = "sympol")]
+    fn test_u_polynomial() {
+        let double_triangle = double_triangle_graph();
+        let double_triangle_trop = TropicalGraph::from_graph(double_triangle, 3);
+        let u_polynomial = double_triangle_trop.get_u_polynomial().expand();
+        let target = symbolica::atom::Atom::parse(
+            "x0*x2 + x0*x3 + x0*x4 + x1*x2 + x1*x3 + x1*x4 + x2*x3 + x2*x4",
+        )
+        .unwrap();
+
+        assert_eq!(target, u_polynomial);
     }
 }
