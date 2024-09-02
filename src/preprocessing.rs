@@ -510,7 +510,7 @@ mod symbolic_polynomial {
     use itertools::Itertools;
 
     use super::{TropicalGraph, TropicalSubGraphId};
-    use symbolica::atom::Atom;
+    use symbolica::{atom::Atom, domains::atom::AtomField, tensors::matrix::Matrix};
 
     impl TropicalSubGraphId {
         fn complement(&self) -> Self {
@@ -537,10 +537,14 @@ mod symbolic_polynomial {
             })
         }
 
+        pub fn build_symbolic_feynman_parameters(&self) -> Vec<Atom> {
+            (0..self.topology.len())
+                .map(|e| Atom::parse(&format!("x({})", e)).unwrap())
+                .collect()
+        }
+
         pub fn get_u_polynomial(&self) -> Atom {
-            let x = (0..self.topology.len())
-                .map(|e| Atom::parse(&format!("x{}", e)).unwrap())
-                .collect_vec();
+            let x = self.build_symbolic_feynman_parameters();
 
             let spanning_trees = self.get_spanning_trees();
             spanning_trees
@@ -550,7 +554,32 @@ mod symbolic_polynomial {
                         .contains_edges()
                         .fold(Atom::new_num(1), |acc, e| acc * &x[e])
                 })
-                .fold(Atom::new(), |acc, t| acc + t)
+                .reduce(|acc, t| acc + t)
+                .unwrap()
+        }
+
+        pub fn get_l_matrix_from_signature(
+            &self,
+            signature: &[Vec<i64>],
+        ) -> Result<Matrix<AtomField>, String> {
+            let x = self.build_symbolic_feynman_parameters();
+
+            let mut vec_res = vec![vec![Atom::new(); self.num_loops]; self.num_loops];
+
+            for (i, row) in vec_res.iter_mut().enumerate() {
+                for (j, row_elem) in row.iter_mut().enumerate() {
+                    *row_elem = x
+                        .iter()
+                        .enumerate()
+                        .map(|(e, x)| {
+                            x * Atom::new_num(signature[e][i]) * Atom::new_num(signature[e][j])
+                        })
+                        .reduce(|sum, x| sum + x)
+                        .unwrap()
+                }
+            }
+
+            Matrix::from_nested_vec(vec_res, AtomField {})
         }
     }
 
@@ -1214,11 +1243,17 @@ mod tests {
     fn test_u_polynomial() {
         let double_triangle = double_triangle_graph();
         let double_triangle_trop = TropicalGraph::from_graph(double_triangle, 3);
+        let x = double_triangle_trop.build_symbolic_feynman_parameters();
         let u_polynomial = double_triangle_trop.get_u_polynomial().expand();
-        let target = symbolica::atom::Atom::parse(
-            "x0*x2 + x0*x3 + x0*x4 + x1*x2 + x1*x3 + x1*x4 + x2*x3 + x2*x4",
-        )
-        .unwrap();
+
+        let target = &x[0] * &x[2]
+            + &x[0] * &x[3]
+            + &x[0] * &x[4]
+            + &x[1] * &x[2]
+            + &x[1] * &x[3]
+            + &x[1] * &x[4]
+            + &x[2] * &x[3]
+            + &x[2] * &x[4];
 
         assert_eq!(target, u_polynomial);
     }
