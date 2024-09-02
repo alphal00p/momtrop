@@ -543,6 +543,26 @@ mod symbolic_polynomial {
                 .collect()
         }
 
+        pub fn build_symbolic_edge_shifts(&self) -> Vec<Atom> {
+            (0..self.topology.len())
+                .map(|e| Atom::parse(&format!("pe({})", e)).unwrap())
+                .collect()
+        }
+
+        pub fn build_symbolic_masses(&self) -> Vec<Atom> {
+            self.topology
+                .iter()
+                .enumerate()
+                .map(|(edge_id, edge)| {
+                    if edge.is_massive {
+                        Atom::parse(&format!("m({})", edge_id)).unwrap()
+                    } else {
+                        Atom::new()
+                    }
+                })
+                .collect()
+        }
+
         pub fn get_u_polynomial(&self) -> Atom {
             let x = self.build_symbolic_feynman_parameters();
 
