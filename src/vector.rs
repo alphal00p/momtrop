@@ -161,6 +161,17 @@ impl<const D: usize> Vector<f128, D> {
     }
 }
 
+#[repr(i8)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub enum SignOrZero {
+    Zero = 0,
+    Plus = 1,
+    Minus = -1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Signatures(Vec<SignOrZero>);
+
 #[cfg(test)]
 mod tests {
     use super::Vector;
