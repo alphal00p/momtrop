@@ -507,7 +507,7 @@ impl TropicalSubgraphTable {
 
 #[cfg(feature = "sympol")]
 mod symbolic_polynomial {
-    use itertools::Itertools;
+    use itertools::{izip, Itertools};
 
     use super::{TropicalGraph, TropicalSubGraphId};
     use symbolica::{atom::Atom, domains::atom::AtomField, tensors::matrix::Matrix};
@@ -600,6 +600,26 @@ mod symbolic_polynomial {
             }
 
             Matrix::from_nested_vec(vec_res, AtomField {})
+        }
+
+        pub fn get_u_vectors_from_signature(&self, signature: &[Vec<i64>]) -> Vec<Atom> {
+            let x = self.build_symbolic_feynman_parameters();
+            let p = self.build_symbolic_edge_shifts();
+
+            let mut res = vec![];
+
+            for l in 0..self.num_loops {
+                let u_vector = izip!(&x, &p, signature)
+                    .map(|(x_elem, p_elem, signature)| {
+                        x_elem * p_elem * Atom::new_num(signature[l])
+                    })
+                    .reduce(|sum, t| &sum + t)
+                    .unwrap();
+
+                res.push(u_vector);
+            }
+
+            res
         }
     }
 
