@@ -509,6 +509,8 @@ impl TropicalSubgraphTable {
 mod symbolic_polynomial {
     use itertools::{izip, Itertools};
 
+    use crate::vector::{GraphSignatures, Signature};
+
     use super::{TropicalGraph, TropicalSubGraphId};
     use symbolica::{atom::Atom, domains::atom::AtomField, tensors::matrix::Matrix};
 
@@ -580,7 +582,7 @@ mod symbolic_polynomial {
 
         pub fn get_l_matrix_from_signature(
             &self,
-            signature: &[Vec<i64>],
+            signature: &GraphSignatures,
         ) -> Result<Matrix<AtomField>, String> {
             let x = self.build_symbolic_feynman_parameters();
 
@@ -592,7 +594,8 @@ mod symbolic_polynomial {
                         .iter()
                         .enumerate()
                         .map(|(e, x)| {
-                            x * Atom::new_num(signature[e][i]) * Atom::new_num(signature[e][j])
+                            x * Atom::new_num(signature.signatures[e].loops[i].into_i32())
+                                * Atom::new_num(signature.signatures[e].loops[j].into_i32())
                         })
                         .reduce(|sum, x| sum + x)
                         .unwrap()
@@ -602,16 +605,16 @@ mod symbolic_polynomial {
             Matrix::from_nested_vec(vec_res, AtomField {})
         }
 
-        pub fn get_u_vectors_from_signature(&self, signature: &[Vec<i64>]) -> Vec<Atom> {
+        pub fn get_u_vectors_from_signature(&self, signature: &GraphSignatures) -> Vec<Atom> {
             let x = self.build_symbolic_feynman_parameters();
             let p = self.build_symbolic_edge_shifts();
 
             let mut res = vec![];
 
             for l in 0..self.num_loops {
-                let u_vector = izip!(&x, &p, signature)
+                let u_vector = izip!(&x, &p, &signature.signatures)
                     .map(|(x_elem, p_elem, signature)| {
-                        x_elem * p_elem * Atom::new_num(signature[l])
+                        x_elem * p_elem * Atom::new_num(signature.externals[l].into_i32())
                     })
                     .reduce(|sum, t| &sum + t)
                     .unwrap();

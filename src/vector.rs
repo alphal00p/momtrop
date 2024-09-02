@@ -169,8 +169,53 @@ pub enum SignOrZero {
     Minus = -1,
 }
 
+impl SignOrZero {
+    pub fn into_i32(&self) -> i32 {
+        match self {
+            Self::Zero => 0,
+            Self::Plus => 1,
+            Self::Minus => -1,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Signatures(Vec<SignOrZero>);
+pub struct Signature(Vec<SignOrZero>);
+
+impl IntoIterator for Signature {
+    type Item = SignOrZero;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a Signature {
+    type Item = SignOrZero;
+    type IntoIter = std::iter::Copied<std::slice::Iter<'a, Self::Item>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter().copied()
+    }
+}
+
+impl Index<usize> for Signature {
+    type Output = SignOrZero;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.0[index]
+    }
+}
+
+pub struct EdgeSignature {
+    pub loops: Signature,
+    pub externals: Signature,
+}
+
+pub struct GraphSignatures {
+    pub signatures: Vec<EdgeSignature>,
+}
 
 #[cfg(test)]
 mod tests {
