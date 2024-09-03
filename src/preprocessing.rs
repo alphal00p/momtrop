@@ -512,7 +512,12 @@ mod symbolic_polynomial {
     use crate::vector::{GraphSignatures, Signature};
 
     use super::{TropicalGraph, TropicalSubGraphId};
-    use symbolica::{atom::Atom, domains::atom::AtomField, tensors::matrix::Matrix};
+    use symbolica::{
+        atom::{Atom, Fun, FunctionBuilder, Symbol},
+        domains::atom::AtomField,
+        state::State,
+        tensors::matrix::Matrix,
+    };
 
     impl TropicalSubGraphId {
         fn complement(&self) -> Self {
@@ -609,20 +614,53 @@ mod symbolic_polynomial {
             let x = self.build_symbolic_feynman_parameters();
             let p = self.build_symbolic_edge_shifts();
 
-            let mut res = vec![];
+            (0..self.num_loops)
+                .map(|l| {
+                    izip!(&x, &p, &signature.signatures)
+                        .map(|(x_elem, p_elem, signature)| {
+                            x_elem * p_elem * Atom::new_num(signature.loops[l].into_i32())
+                        })
+                        .reduce(|sum, t| &sum + t)
+                        .unwrap()
+                })
+                .collect()
+        }
 
-            for l in 0..self.num_loops {
-                let u_vector = izip!(&x, &p, &signature.signatures)
-                    .map(|(x_elem, p_elem, signature)| {
-                        x_elem * p_elem * Atom::new_num(signature.externals[l].into_i32())
-                    })
-                    .reduce(|sum, t| &sum + t)
-                    .unwrap();
+        pub fn get_v_polynomial_from_signature(
+            &self,
+            signature: &GraphSignatures,
+        ) -> Result<Atom, String> {
+            let x = self.build_symbolic_feynman_parameters();
+            let m = self.build_symbolic_masses();
+            let p = self.build_symbolic_edge_shifts();
 
-                res.push(u_vector);
-            }
+            let dot = State::get_symbol("dot");
 
-            res
+            let edge_sum_part = izip!(&x, &m, &p)
+                .map(|(x, m, p)| {
+                    x * (m * m + FunctionBuilder::new(dot).add_arg(p).add_arg(p).finish())
+                })
+                .reduce(|sum, term| sum + term)
+                .unwrap_or_else(Atom::new);
+
+            let u_vectors = self.get_u_vectors_from_signature(signature);
+            let l_matrix = self.get_l_matrix_from_signature(signature)?;
+            let l_matrix_inverse = l_matrix.inv().map_err(|e| format!("{:?}", e))?;
+
+            let l_matrix_part = l_matrix_inverse
+                .row_iter()
+                .zip(&u_vectors)
+                .map(|(row, row_u_vector)| {
+                    row.iter()
+                        .zip(&u_vectors)
+                        .map(|(atom, column_u_vector)| atom * row_u_vector * column_u_vector)
+                        .reduce(|sum, term| sum + term)
+                        .unwrap_or_else(Atom::new)
+                })
+                .reduce(|sum, term| sum + term)
+                .unwrap_or_else(Atom::new);
+
+            Ok(edge_sum_part - l_matrix_part)
         }
     }
 
