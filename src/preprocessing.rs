@@ -599,8 +599,8 @@ mod symbolic_polynomial {
                         .iter()
                         .enumerate()
                         .map(|(e, x)| {
-                            x * Atom::new_num(signature.signatures[e].loops[i].into_i32())
-                                * Atom::new_num(signature.signatures[e].loops[j].into_i32())
+                            x * Atom::new_num::<i32>(signature.signatures[e].loops[i].into())
+                                * Atom::new_num::<i32>(signature.signatures[e].loops[j].into())
                         })
                         .reduce(|sum, x| sum + x)
                         .unwrap()
@@ -618,7 +618,7 @@ mod symbolic_polynomial {
                 .map(|l| {
                     izip!(&x, &p, &signature.signatures)
                         .map(|(x_elem, p_elem, signature)| {
-                            x_elem * p_elem * Atom::new_num(signature.loops[l].into_i32())
+                            x_elem * p_elem * Atom::new_num::<i32>(signature.loops[l].into())
                         })
                         .reduce(|sum, t| &sum + t)
                         .unwrap()
@@ -1337,5 +1337,45 @@ mod tests {
             + &x[2] * &x[4];
 
         assert_eq!(target, u_polynomial);
+    }
+
+    #[test]
+    #[cfg(feature = "sympol")]
+    fn test_v_polynomial() {
+        use crate::vector::{EdgeSignature, GraphSignatures, Signature};
+
+        let double_triangle_trop = TropicalGraph::from_graph(double_triangle_graph(), 3);
+
+        let double_triangle_signatures = GraphSignatures {
+            signatures: vec![
+                EdgeSignature {
+                    loops: Signature::from_iter([1, 0]),
+                    externals: Signature::from_iter([0]),
+                },
+                EdgeSignature {
+                    loops: Signature::from_iter([1, 0]),
+                    externals: Signature::from_iter([1]),
+                },
+                EdgeSignature {
+                    loops: Signature::from_iter([1, 1]),
+                    externals: Signature::from_iter([0]),
+                },
+                EdgeSignature {
+                    loops: Signature::from_iter([0, 1]),
+                    externals: Signature::from_iter([0]),
+                },
+                EdgeSignature {
+                    loops: Signature::from_iter([0, 1]),
+                    externals: Signature::from_iter([1]),
+                },
+            ],
+        };
+
+        let v_polynomial = double_triangle_trop
+            .get_v_polynomial_from_signature(&double_triangle_signatures)
+            .unwrap()
+            .expand();
+
+        println!("v: {}", v_polynomial);
     }
 }

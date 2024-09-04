@@ -169,12 +169,45 @@ pub enum SignOrZero {
     Minus = -1,
 }
 
-impl SignOrZero {
-    pub fn into_i32(&self) -> i32 {
-        match self {
-            Self::Zero => 0,
-            Self::Plus => 1,
-            Self::Minus => -1,
+impl From<i8> for SignOrZero {
+    fn from(value: i8) -> Self {
+        match value {
+            0 => Self::Zero,
+            1 => Self::Plus,
+            -1 => Self::Minus,
+            _ => panic!("signature must be -1, 1 or 0"),
+        }
+    }
+}
+
+impl From<i32> for SignOrZero {
+    fn from(value: i32) -> Self {
+        match value {
+            0 => Self::Zero,
+            1 => Self::Plus,
+            -1 => Self::Minus,
+            _ => panic!("signature must be -1, 1 or 0"),
+        }
+    }
+}
+
+impl From<i64> for SignOrZero {
+    fn from(value: i64) -> Self {
+        match value {
+            0 => Self::Zero,
+            1 => Self::Plus,
+            -1 => Self::Minus,
+            _ => panic!("signature must be -1, 1 or 0"),
+        }
+    }
+}
+
+impl From<SignOrZero> for i32 {
+    fn from(value: SignOrZero) -> Self {
+        match value {
+            SignOrZero::Zero => 0,
+            SignOrZero::Plus => 1,
+            SignOrZero::Minus => -1,
         }
     }
 }
@@ -205,6 +238,12 @@ impl Index<usize> for Signature {
 
     fn index(&self, index: usize) -> &Self::Output {
         &self.0[index]
+    }
+}
+
+impl<I: Into<SignOrZero>> FromIterator<I> for Signature {
+    fn from_iter<T: IntoIterator<Item = I>>(iter: T) -> Self {
+        Self(iter.into_iter().map(Into::<SignOrZero>::into).collect())
     }
 }
 
