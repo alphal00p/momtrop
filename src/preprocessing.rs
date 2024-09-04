@@ -507,14 +507,17 @@ impl TropicalSubgraphTable {
 
 #[cfg(feature = "sympol")]
 mod symbolic_polynomial {
+    use std::sync::Arc;
+
     use itertools::{izip, Itertools};
 
-    use crate::vector::{GraphSignatures, Signature};
+    use crate::vector::GraphSignatures;
 
     use super::{TropicalGraph, TropicalSubGraphId};
     use symbolica::{
-        atom::{Atom, Fun, FunctionBuilder, Symbol},
-        domains::atom::AtomField,
+        atom::{Atom, FunctionBuilder, Symbol},
+        domains::{atom::AtomField, integer::IntegerRing},
+        poly::{polynomial::MultivariatePolynomial, Variable},
         state::State,
         tensors::matrix::Matrix,
     };
@@ -530,7 +533,6 @@ mod symbolic_polynomial {
     impl TropicalGraph {
         fn get_spanning_trees<'a>(&'a self) -> impl Iterator<Item = TropicalSubGraphId> + 'a {
             let poweset_size = 2usize.pow(self.topology.len() as u32);
-
             // todo, replace this by a suitable lower and upper bound
 
             let possible_subgraphs = (0..poweset_size)
@@ -544,9 +546,9 @@ mod symbolic_polynomial {
             })
         }
 
-        pub fn build_symbolic_feynman_parameters(&self) -> Vec<Atom> {
+        pub fn build_feynman_parameter_symbols(&self) -> Vec<Symbol> {
             (0..self.topology.len())
-                .map(|e| Atom::parse(&format!("x({})", e)).unwrap())
+                .map(|e| State::get_symbol(&format!("x({})", e)))
                 .collect()
         }
 
@@ -570,26 +572,30 @@ mod symbolic_polynomial {
                 .collect()
         }
 
-        pub fn get_u_polynomial(&self) -> Atom {
-            let x = self.build_symbolic_feynman_parameters();
+        pub fn get_u_polynomial(&self) -> MultivariatePolynomial<IntegerRing> {
+            let x = self.build_feynman_parameter_symbols();
+            let vars = Arc::new(x.into_iter().map(Into::<Variable>::into).collect_vec());
 
             let spanning_trees = self.get_spanning_trees();
-            spanning_trees
-                .map(|id| {
-                    let complement = id.complement();
-                    complement
-                        .contains_edges()
-                        .fold(Atom::new_num(1), |acc, e| acc * &x[e])
-                })
-                .reduce(|acc, t| acc + t)
-                .unwrap()
+            let mut u = MultivariatePolynomial::new(&IntegerRing, Some(1), vars);
+
+            for spanning_tree in spanning_trees {
+                let complement_edges = spanning_tree.complement().contains_edges().collect_vec();
+                let exponents = (0..self.topology.len())
+                    .map(|e| if complement_edges.contains(&e) { 1 } else { 0 })
+                    .collect_vec();
+
+                u.append_monomial(1.into(), &exponents)
+            }
+
+            u
         }
 
         pub fn get_l_matrix_from_signature(
             &self,
             signature: &GraphSignatures,
         ) -> Result<Matrix<AtomField>, String> {
-            let x = self.build_symbolic_feynman_parameters();
+            let x = self.build_feynman_parameter_symbols();
 
             let mut vec_res = vec![vec![Atom::new(); self.num_loops]; self.num_loops];
 
@@ -599,7 +605,8 @@ mod symbolic_polynomial {
                         .iter()
                         .enumerate()
                         .map(|(e, x)| {
-                            x * Atom::new_num::<i32>(signature.signatures[e].loops[i].into())
+                            Atom::new_var(*x)
+                                * Atom::new_num::<i32>(signature.signatures[e].loops[i].into())
                                 * Atom::new_num::<i32>(signature.signatures[e].loops[j].into())
                         })
                         .reduce(|sum, x| sum + x)
@@ -611,14 +618,16 @@ mod symbolic_polynomial {
         }
 
         pub fn get_u_vectors_from_signature(&self, signature: &GraphSignatures) -> Vec<Atom> {
-            let x = self.build_symbolic_feynman_parameters();
+            let x = self.build_feynman_parameter_symbols();
             let p = self.build_symbolic_edge_shifts();
 
             (0..self.num_loops)
                 .map(|l| {
                     izip!(&x, &p, &signature.signatures)
                         .map(|(x_elem, p_elem, signature)| {
-                            x_elem * p_elem * Atom::new_num::<i32>(signature.loops[l].into())
+                            Atom::new_var(*x_elem)
+                                * p_elem
+                                * Atom::new_num::<i32>(signature.loops[l].into())
                         })
                         .reduce(|sum, t| &sum + t)
                         .unwrap()
@@ -630,7 +639,7 @@ mod symbolic_polynomial {
             &self,
             signature: &GraphSignatures,
         ) -> Result<Atom, String> {
-            let x = self.build_symbolic_feynman_parameters();
+            let x = self.build_feynman_parameter_symbols();
             let m = self.build_symbolic_masses();
             let p = self.build_symbolic_edge_shifts();
 
@@ -638,7 +647,8 @@ mod symbolic_polynomial {
 
             let edge_sum_part = izip!(&x, &m, &p)
                 .map(|(x, m, p)| {
-                    x * (m * m + FunctionBuilder::new(dot).add_arg(p).add_arg(p).finish())
+                    Atom::new_var(*x)
+                        * (m * m + FunctionBuilder::new(dot).add_arg(p).add_arg(p).finish())
                 })
                 .reduce(|sum, term| sum + term)
                 .unwrap_or_else(Atom::new);
@@ -1322,19 +1332,31 @@ mod tests {
     #[test]
     #[cfg(feature = "sympol")]
     fn test_u_polynomial() {
+        use symbolica::{
+            domains::integer::IntegerRing,
+            poly::{polynomial::MultivariatePolynomial, Variable},
+        };
+
         let double_triangle = double_triangle_graph();
         let double_triangle_trop = TropicalGraph::from_graph(double_triangle, 3);
-        let x = double_triangle_trop.build_symbolic_feynman_parameters();
-        let u_polynomial = double_triangle_trop.get_u_polynomial().expand();
+        let x = double_triangle_trop
+            .build_feynman_parameter_symbols()
+            .into_iter()
+            .map(Into::<Variable>::into)
+            .collect_vec();
 
-        let target = &x[0] * &x[2]
-            + &x[0] * &x[3]
-            + &x[0] * &x[4]
-            + &x[1] * &x[2]
-            + &x[1] * &x[3]
-            + &x[1] * &x[4]
-            + &x[2] * &x[3]
-            + &x[2] * &x[4];
+        let u_polynomial = double_triangle_trop.get_u_polynomial();
+
+        let vars = std::sync::Arc::new(x);
+        let mut target = MultivariatePolynomial::new(&IntegerRing, Some(1), vars);
+        target.append_monomial(1.into(), &[1, 0, 1, 0, 0]);
+        target.append_monomial(1.into(), &[1, 0, 0, 1, 0]);
+        target.append_monomial(1.into(), &[1, 0, 0, 0, 1]);
+        target.append_monomial(1.into(), &[0, 1, 1, 0, 0]);
+        target.append_monomial(1.into(), &[0, 1, 0, 1, 0]);
+        target.append_monomial(1.into(), &[0, 1, 0, 0, 1]);
+        target.append_monomial(1.into(), &[0, 0, 1, 1, 0]);
+        target.append_monomial(1.into(), &[0, 0, 1, 0, 1]);
 
         assert_eq!(target, u_polynomial);
     }
