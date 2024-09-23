@@ -1,5 +1,8 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use momtrop::{vector::Vector, Edge, Graph, TropicalSamplingSettings};
+use momtrop::{
+    vector::{EdgeSignature, GraphSignatures, Signature, Vector},
+    Edge, Graph, TropicalSamplingSettings,
+};
 use rand::{Rng, SeedableRng};
 
 fn criterion_benchmark(c: &mut Criterion) {
@@ -33,8 +36,24 @@ fn criterion_benchmark(c: &mut Criterion) {
     #[cfg(feature = "log")]
     let logger = momtrop::log::DummyLogger {};
 
-    let loop_signature = vec![vec![1]; 3];
-    let sampler = graph.build_sampler(loop_signature, 3).unwrap();
+    let graph_signatures = GraphSignatures {
+        signatures: vec![
+            EdgeSignature {
+                loops: Signature::from_iter([1]),
+                externals: Signature::from_iter([0, 0]),
+            },
+            EdgeSignature {
+                loops: Signature::from_iter([1]),
+                externals: Signature::from_iter([1, 0]),
+            },
+            EdgeSignature {
+                loops: Signature::from_iter([1]),
+                externals: Signature::from_iter([1, 1]),
+            },
+        ],
+    };
+
+    let sampler = graph.build_sampler(graph_signatures, 3).unwrap();
     let mut rng = rand::rngs::StdRng::seed_from_u64(69);
     let p1 = Vector::from_array([3.0, 4.0, 5.0]);
     let p2 = Vector::from_array([6.0, 7.0, 8.0]);

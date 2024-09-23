@@ -6,7 +6,7 @@ use num::Zero;
 use serde::{Deserialize, Serialize};
 use statrs::function::gamma::gamma;
 
-use crate::{float::FloatLike, Graph, MAX_EDGES};
+use crate::{float::FloatLike, vector::GraphSignatures, Graph, MAX_EDGES};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TropicalGraph {
@@ -15,10 +15,11 @@ pub struct TropicalGraph {
     pub num_massive_edges: usize,
     pub external_vertices: Vec<u8>,
     pub num_loops: usize,
+    pub signature: GraphSignatures,
 }
 
 impl TropicalGraph {
-    pub fn from_graph(graph: Graph, dimension: usize) -> Self {
+    pub fn from_graph(graph: Graph, signatures: GraphSignatures, dimension: usize) -> Self {
         assert!(
             graph.edges.len() <= MAX_EDGES,
             "Graph has more than 64 edges"
@@ -45,6 +46,7 @@ impl TropicalGraph {
             num_massive_edges: 0,
             external_vertices: graph.externals,
             num_loops: 0,
+            signature: signatures,
         };
 
         let weight_sum = res.compute_weight_sum(&all_edges);
@@ -511,8 +513,6 @@ mod symbolic_polynomial {
 
     use itertools::{izip, Itertools};
 
-    use crate::vector::GraphSignatures;
-
     use super::{TropicalGraph, TropicalSubGraphId};
     use symbolica::{
         atom::{Atom, FunctionBuilder, Symbol},
@@ -591,10 +591,8 @@ mod symbolic_polynomial {
             u
         }
 
-        pub fn get_l_matrix_from_signature(
-            &self,
-            signature: &GraphSignatures,
-        ) -> Result<Matrix<AtomField>, String> {
+        pub fn get_l_matrix_from_signature(&self) -> Result<Matrix<AtomField>, String> {
+            let signature = &self.signature;
             let x = self.build_feynman_parameter_symbols();
 
             let mut vec_res = vec![vec![Atom::new(); self.num_loops]; self.num_loops];
@@ -617,7 +615,8 @@ mod symbolic_polynomial {
             Matrix::from_nested_vec(vec_res, AtomField {})
         }
 
-        pub fn get_u_vectors_from_signature(&self, signature: &GraphSignatures) -> Vec<Atom> {
+        pub fn get_u_vectors_from_signature(&self) -> Vec<Atom> {
+            let signature = &self.signature;
             let x = self.build_feynman_parameter_symbols();
             let p = self.build_symbolic_edge_shifts();
 
@@ -635,10 +634,7 @@ mod symbolic_polynomial {
                 .collect()
         }
 
-        pub fn get_v_polynomial_from_signature(
-            &self,
-            signature: &GraphSignatures,
-        ) -> Result<Atom, String> {
+        pub fn get_v_polynomial_from_signature(&self) -> Result<Atom, String> {
             let x = self.build_feynman_parameter_symbols();
             let m = self.build_symbolic_masses();
             let p = self.build_symbolic_edge_shifts();
@@ -653,8 +649,8 @@ mod symbolic_polynomial {
                 .reduce(|sum, term| sum + term)
                 .unwrap_or_else(Atom::new);
 
-            let u_vectors = self.get_u_vectors_from_signature(signature);
-            let l_matrix = self.get_l_matrix_from_signature(signature)?;
+            let u_vectors = self.get_u_vectors_from_signature();
+            let l_matrix = self.get_l_matrix_from_signature()?;
             let l_matrix_inverse = l_matrix.inv().map_err(|e| format!("{:?}", e))?;
 
             let l_matrix_part = l_matrix_inverse
@@ -697,8 +693,13 @@ mod symbolic_polynomial {
 // some tests
 #[cfg(test)]
 mod tests {
+
     use super::*;
-    use crate::{assert_approx_eq, Edge};
+    use crate::{
+        assert_approx_eq,
+        vector::{EdgeSignature, Signature},
+        Edge,
+    };
 
     const TOLERANCE: f64 = 1e-14;
     // panics with useful error message
@@ -811,6 +812,25 @@ mod tests {
         }
     }
 
+    fn sunrise_signatures() -> GraphSignatures {
+        GraphSignatures {
+            signatures: vec![
+                EdgeSignature {
+                    loops: Signature::from_iter([1, 0]),
+                    externals: Signature::from_iter([0]),
+                },
+                EdgeSignature {
+                    loops: Signature::from_iter([0, 1]),
+                    externals: Signature::from_iter([0]),
+                },
+                EdgeSignature {
+                    loops: Signature::from_iter([1, 1]),
+                    externals: Signature::from_iter([1]),
+                },
+            ],
+        }
+    }
+
     fn massive_sunrise_graph() -> Graph {
         Graph {
             edges: vec![
@@ -867,10 +887,79 @@ mod tests {
         }
     }
 
+    fn double_triangle_signatures() -> GraphSignatures {
+        GraphSignatures {
+            signatures: vec![
+                EdgeSignature {
+                    loops: Signature::from_iter([1, 0]),
+                    externals: Signature::from_iter([0]),
+                },
+                EdgeSignature {
+                    loops: Signature::from_iter([1, 0]),
+                    externals: Signature::from_iter([1]),
+                },
+                EdgeSignature {
+                    loops: Signature::from_iter([1, 1]),
+                    externals: Signature::from_iter([0]),
+                },
+                EdgeSignature {
+                    loops: Signature::from_iter([0, 1]),
+                    externals: Signature::from_iter([0]),
+                },
+                EdgeSignature {
+                    loops: Signature::from_iter([0, 1]),
+                    externals: Signature::from_iter([1]),
+                },
+            ],
+        }
+    }
+
+    fn triangle_signatures() -> GraphSignatures {
+        GraphSignatures {
+            signatures: vec![
+                EdgeSignature {
+                    loops: Signature::from_iter([1]),
+                    externals: Signature::from_iter([0, 0]),
+                },
+                EdgeSignature {
+                    loops: Signature::from_iter([1]),
+                    externals: Signature::from_iter([1, 0]),
+                },
+                EdgeSignature {
+                    loops: Signature::from_iter([1]),
+                    externals: Signature::from_iter([1, 1]),
+                },
+            ],
+        }
+    }
+
+    fn double_bubble_signatures() -> GraphSignatures {
+        GraphSignatures {
+            signatures: vec![
+                EdgeSignature {
+                    loops: Signature::from_iter([1, 0]),
+                    externals: Signature::from_iter([0]),
+                },
+                EdgeSignature {
+                    loops: Signature::from_iter([1, 0]),
+                    externals: Signature::from_iter([1]),
+                },
+                EdgeSignature {
+                    loops: Signature::from_iter([0, 1]),
+                    externals: Signature::from_iter([0]),
+                },
+                EdgeSignature {
+                    loops: Signature::from_iter([0, 1]),
+                    externals: Signature::from_iter([1]),
+                },
+            ],
+        }
+    }
+
     #[test]
     fn test_from_graph() {
         let sunrise_graph = sunrise_graph();
-        let tropical_sunrise = TropicalGraph::from_graph(sunrise_graph, 3);
+        let tropical_sunrise = TropicalGraph::from_graph(sunrise_graph, sunrise_signatures(), 3);
 
         assert_eq!(tropical_sunrise.topology.len(), 3);
         assert_eq!(tropical_sunrise.dod, 0.0);
@@ -888,7 +977,7 @@ mod tests {
     #[test]
     fn test_get_full_subgraph_id() {
         let sunrise_graph = sunrise_graph();
-        let tropical_sunrise = TropicalGraph::from_graph(sunrise_graph, 3);
+        let tropical_sunrise = TropicalGraph::from_graph(sunrise_graph, sunrise_signatures(), 3);
         let full_subgraph_id = tropical_sunrise.get_full_subgraph_id();
         assert_eq!(full_subgraph_id.get_id(), 7);
     }
@@ -896,7 +985,7 @@ mod tests {
     #[test]
     fn test_is_mass_momentum_spanning() {
         let sunrise_graph = sunrise_graph();
-        let tropical_sunrise = TropicalGraph::from_graph(sunrise_graph, 3);
+        let tropical_sunrise = TropicalGraph::from_graph(sunrise_graph, sunrise_signatures(), 3);
 
         assert!(tropical_sunrise.is_mass_momentum_spanning(&[0, 1, 2]));
         assert!(tropical_sunrise.is_mass_momentum_spanning(&[0, 1]));
@@ -907,7 +996,8 @@ mod tests {
         assert!(tropical_sunrise.is_mass_momentum_spanning(&[1]));
 
         let massive_sunrise_graph = massive_sunrise_graph();
-        let massive_sunrise = TropicalGraph::from_graph(massive_sunrise_graph, 3);
+        let massive_sunrise =
+            TropicalGraph::from_graph(massive_sunrise_graph, sunrise_signatures(), 3);
 
         assert!(massive_sunrise.is_mass_momentum_spanning(&[0, 1, 2]));
         assert!(!massive_sunrise.is_mass_momentum_spanning(&[0, 1]));
@@ -957,6 +1047,7 @@ mod tests {
             num_massive_edges: 0,
             external_vertices: vec![0, 1, 2, 3],
             num_loops: 2,
+            signature: double_bubble_signatures(),
         };
 
         let components = tropical_graph.get_connected_components(&[0, 1, 2, 3]);
@@ -973,7 +1064,7 @@ mod tests {
     fn test_get_loop_number_of_connected_component() {
         let graph = double_triangle_graph();
 
-        let tropical_graph = TropicalGraph::from_graph(graph, 3);
+        let tropical_graph = TropicalGraph::from_graph(graph, double_triangle_signatures(), 3);
 
         let subgraph_id = tropical_graph.get_full_subgraph_id();
         let loop_number = tropical_graph.get_loop_number_of_connected_component(&subgraph_id);
@@ -983,7 +1074,7 @@ mod tests {
     #[test]
     fn test_compute_weight_sum() {
         let graph = double_triangle_graph();
-        let tropical_graph = TropicalGraph::from_graph(graph, 3);
+        let tropical_graph = TropicalGraph::from_graph(graph, double_triangle_signatures(), 3);
 
         let weight_sum = tropical_graph.compute_weight_sum(&[0, 1, 2, 3, 4]);
         assert_eq!(weight_sum, 5.0);
@@ -1012,7 +1103,8 @@ mod tests {
             externals: vec![],
         };
 
-        let trop_tri = TropicalGraph::from_graph(triangle_with_different_weights, 3);
+        let trop_tri =
+            TropicalGraph::from_graph(triangle_with_different_weights, triangle_signatures(), 3);
         let weight_sum = trop_tri.compute_weight_sum(&[0, 1]);
         assert_eq!(weight_sum, 3.0);
 
@@ -1062,6 +1154,7 @@ mod tests {
             num_massive_edges: 0,
             external_vertices: vec![0, 1, 2, 3],
             num_loops: 2,
+            signature: double_bubble_signatures(),
         };
 
         let loop_number = tropical_graph1.get_loop_number(&[0, 1, 2, 3]);
@@ -1077,7 +1170,7 @@ mod tests {
     #[test]
     fn test_get_neighbours() {
         let double_triangle = double_triangle_graph();
-        let trop = TropicalGraph::from_graph(double_triangle, 3);
+        let trop = TropicalGraph::from_graph(double_triangle, double_triangle_signatures(), 3);
 
         let neighbours = trop.get_neighbouring_edges_in_subgraph(0, &[0, 1, 2, 3, 4]);
         assert_eq!(neighbours.len(), 4);
@@ -1090,7 +1183,8 @@ mod tests {
 
     #[test]
     fn test_are_neighbours() {
-        let trop = TropicalGraph::from_graph(double_triangle_graph(), 3);
+        let trop =
+            TropicalGraph::from_graph(double_triangle_graph(), double_triangle_signatures(), 3);
         assert!(trop.are_neighbours(0, 1));
         assert!(trop.are_neighbours(0, 2));
         assert!(trop.are_neighbours(0, 3));
@@ -1139,6 +1233,7 @@ mod tests {
             num_massive_edges: 0,
             external_vertices: vec![0, 1, 2],
             num_loops: 1,
+            signature: triangle_signatures(),
         };
 
         let subgraph_table = TropicalSubgraphTable::generate_from_tropical(&triangle_graph, 3)
@@ -1216,6 +1311,7 @@ mod tests {
             num_massive_edges: 0,
             external_vertices: vec![0, 1],
             num_loops: 2,
+            signature: sunrise_signatures(),
         };
 
         let subgraph_table = TropicalSubgraphTable::generate_from_tropical(&sunrise_graph, 3)
@@ -1319,6 +1415,7 @@ mod tests {
             topology: mercedes_topology,
             external_vertices: externals,
             num_loops: 3,
+            signature: GraphSignatures { signatures: vec![] }, // todo, actual signature
         };
 
         let subgraph_table = TropicalSubgraphTable::generate_from_tropical(&gr, 3)
@@ -1338,7 +1435,8 @@ mod tests {
         };
 
         let double_triangle = double_triangle_graph();
-        let double_triangle_trop = TropicalGraph::from_graph(double_triangle, 3);
+        let double_triangle_trop =
+            TropicalGraph::from_graph(double_triangle, double_triangle_signatures(), 3);
         let x = double_triangle_trop
             .build_feynman_parameter_symbols()
             .into_iter()
@@ -1364,37 +1462,11 @@ mod tests {
     #[test]
     #[cfg(feature = "sympol")]
     fn test_v_polynomial() {
-        use crate::vector::{EdgeSignature, GraphSignatures, Signature};
-
-        let double_triangle_trop = TropicalGraph::from_graph(double_triangle_graph(), 3);
-
-        let double_triangle_signatures = GraphSignatures {
-            signatures: vec![
-                EdgeSignature {
-                    loops: Signature::from_iter([1, 0]),
-                    externals: Signature::from_iter([0]),
-                },
-                EdgeSignature {
-                    loops: Signature::from_iter([1, 0]),
-                    externals: Signature::from_iter([1]),
-                },
-                EdgeSignature {
-                    loops: Signature::from_iter([1, 1]),
-                    externals: Signature::from_iter([0]),
-                },
-                EdgeSignature {
-                    loops: Signature::from_iter([0, 1]),
-                    externals: Signature::from_iter([0]),
-                },
-                EdgeSignature {
-                    loops: Signature::from_iter([0, 1]),
-                    externals: Signature::from_iter([1]),
-                },
-            ],
-        };
+        let double_triangle_trop =
+            TropicalGraph::from_graph(double_triangle_graph(), double_triangle_signatures(), 3);
 
         let v_polynomial = double_triangle_trop
-            .get_v_polynomial_from_signature(&double_triangle_signatures)
+            .get_v_polynomial_from_signature()
             .unwrap()
             .expand();
 

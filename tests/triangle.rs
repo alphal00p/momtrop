@@ -1,4 +1,7 @@
-use momtrop::{vector::Vector, Edge, Graph, TropicalSamplingSettings};
+use momtrop::{
+    vector::{EdgeSignature, GraphSignatures, Signature, Vector},
+    Edge, Graph, TropicalSamplingSettings,
+};
 use rand::SeedableRng;
 
 /// integrate a massless triangle with LTD and tropicalsampling
@@ -31,8 +34,24 @@ fn integrate_massless_triangle() {
         externals,
     };
 
-    let loop_signature = vec![vec![1]; 3];
-    let sampler = graph.build_sampler(loop_signature, 3).unwrap();
+    let graph_signatures = GraphSignatures {
+        signatures: vec![
+            EdgeSignature {
+                loops: Signature::from_iter([1]),
+                externals: Signature::from_iter([0, 0]),
+            },
+            EdgeSignature {
+                loops: Signature::from_iter([1]),
+                externals: Signature::from_iter([1, 0]),
+            },
+            EdgeSignature {
+                loops: Signature::from_iter([1]),
+                externals: Signature::from_iter([1, 1]),
+            },
+        ],
+    };
+
+    let sampler = graph.build_sampler(graph_signatures, 3).unwrap();
     let p1 = Vector::from_array([3.0, 4.0, 5.0]);
     let p2 = Vector::from_array([6.0, 7.0, 8.0]);
 

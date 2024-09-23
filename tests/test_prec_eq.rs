@@ -1,5 +1,6 @@
 use momtrop::{
-    vector::Vector, Edge, Graph, SampleGenerator, TropicalSampleResult, TropicalSamplingSettings,
+    vector::{EdgeSignature, GraphSignatures, Signature, Vector},
+    Edge, Graph, SampleGenerator, TropicalSampleResult, TropicalSamplingSettings,
 };
 
 #[test]
@@ -31,8 +32,24 @@ fn test_prec_eq() {
         externals,
     };
 
-    let loop_signature = vec![vec![1]; 3];
-    let sampler: SampleGenerator<3> = graph.build_sampler(loop_signature, 3).unwrap();
+    let graph_signatures = GraphSignatures {
+        signatures: vec![
+            EdgeSignature {
+                loops: Signature::from_iter([1]),
+                externals: Signature::from_iter([0, 0]),
+            },
+            EdgeSignature {
+                loops: Signature::from_iter([1]),
+                externals: Signature::from_iter([1, 0]),
+            },
+            EdgeSignature {
+                loops: Signature::from_iter([1]),
+                externals: Signature::from_iter([1, 1]),
+            },
+        ],
+    };
+
+    let sampler: SampleGenerator<3> = graph.build_sampler(graph_signatures, 3).unwrap();
     let p1 = Vector::from_array([3.0, 4.0, 5.0]);
     let p2 = Vector::from_array([6.0, 7.0, 8.0]);
 

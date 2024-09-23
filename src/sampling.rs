@@ -5,7 +5,7 @@ use super::TropicalSubgraphTable;
 use crate::log::Logger;
 use crate::matrix::{MatrixError, SquareMatrix};
 use crate::mimic_rng::MimicRng;
-use crate::vector::Vector;
+use crate::vector::{GraphSignatures, Vector};
 use crate::{float::FloatLike, gamma::inverse_gamma_lr};
 use crate::{TropicalSampleResult, TropicalSamplingSettings};
 
@@ -23,7 +23,6 @@ pub enum SamplingError {
 pub fn sample<T: FloatLike + Into<f64>, const D: usize, #[cfg(feature = "log")] L: Logger>(
     tropical_subgraph_table: &TropicalSubgraphTable,
     x_space_point: &[T],
-    loop_signature: &[Vec<isize>],
     edge_data: &[(Option<T>, Vector<T, D>)],
     settings: &TropicalSamplingSettings,
     #[cfg(feature = "log")] logger: &L,
@@ -39,7 +38,10 @@ pub fn sample<T: FloatLike + Into<f64>, const D: usize, #[cfg(feature = "log")] 
         logger,
     );
 
-    let l_matrix = compute_l_matrix(&permatuhedral_sample.x, loop_signature);
+    let l_matrix = compute_l_matrix(
+        &permatuhedral_sample.x,
+        &tropical_subgraph_table.tropical_graph.signature,
+    );
     let decomposed_l_matrix = match l_matrix.decompose_for_tropical(settings) {
         Ok(decomposition_result) => decomposition_result,
         Err(error) => {
@@ -73,7 +75,11 @@ pub fn sample<T: FloatLike + Into<f64>, const D: usize, #[cfg(feature = "log")] 
         .unzip();
 
     let q_vectors = sample_q_vectors(&mut mimic_rng, tropical_subgraph_table.dimension, num_loops);
-    let u_vectors = compute_u_vectors(&permatuhedral_sample.x, loop_signature, &edge_shifts);
+    let u_vectors = compute_u_vectors(
+        &permatuhedral_sample.x,
+        &tropical_subgraph_table.tropical_graph.signature,
+        &edge_shifts,
+    );
 
     let v_polynomial = compute_v_polynomial(
         &permatuhedral_sample.x,
@@ -248,17 +254,17 @@ fn permatuhedral_sampling<T: FloatLike, #[cfg(feature = "log")] L: Logger>(
 
 /// Compute the L x L matrix from the feynman parameters and the signature matrix
 #[inline]
-fn compute_l_matrix<T: FloatLike>(x_vec: &[T], signature_matrix: &[Vec<isize>]) -> SquareMatrix<T> {
-    let num_edges = signature_matrix.len();
-    let num_loops = signature_matrix[0].len();
-
+fn compute_l_matrix<T: FloatLike>(x_vec: &[T], signatures: &GraphSignatures) -> SquareMatrix<T> {
+    let num_loops = signatures.signatures[0].loops.len();
     let mut temp_l_matrix = SquareMatrix::new_zeros(num_loops);
 
     for i in 0..num_loops {
         for j in i..num_loops {
-            for e in 0..num_edges {
-                let add = x_vec[e]
-                    * Into::<T>::into((signature_matrix[e][i] * signature_matrix[e][j]) as f64);
+            for (e, x_e) in x_vec.iter().enumerate() {
+                let add = *x_e
+                    * Into::<T>::into(Into::<f64>::into(
+                        signatures.signatures[e].loops[i] * signatures.signatures[e].loops[j],
+                    ));
                 if i == j {
                     temp_l_matrix[(i, j)] += add;
                 } else {
@@ -307,17 +313,18 @@ fn sample_q_vectors<T: FloatLike, const D: usize>(
 #[inline]
 fn compute_u_vectors<T: FloatLike, const D: usize>(
     x_vec: &[T],
-    signature_marix: &[Vec<isize>],
+    signature_marix: &GraphSignatures,
     edge_shifts: &[Vector<T, D>],
 ) -> Vec<Vector<T, D>> {
-    let num_loops = signature_marix[0].len();
-    let num_edges = signature_marix.len();
+    let num_loops = signature_marix.signatures[0].loops.len();
+    let num_edges = signature_marix.signatures.len();
 
     (0..num_loops)
         .map(|l| {
             (0..num_edges).fold(Vector::new(), |acc: Vector<T, D>, e| {
                 &acc + &(&edge_shifts[e]
-                    * (x_vec[e] * Into::<T>::into(signature_marix[e][l] as f64)))
+                    * (x_vec[e]
+                        * Into::<T>::into(signature_marix.signatures[e].loops[l] as i32 as f64)))
             })
         })
         .collect_vec()

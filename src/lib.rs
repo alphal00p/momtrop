@@ -10,7 +10,7 @@ use preprocessing::{TropicalGraph, TropicalSubgraphTable};
 use rand::Rng;
 use sampling::{sample, SamplingError};
 use serde::{Deserialize, Serialize};
-use vector::Vector;
+use vector::{GraphSignatures, Vector};
 
 mod float;
 pub mod gamma;
@@ -90,16 +90,13 @@ impl<const D: usize> TropicalSampleResult<f128, D> {
 impl Graph {
     pub fn build_sampler<const D: usize>(
         self,
-        loop_signature: Vec<Vec<isize>>,
+        signatures: GraphSignatures,
         dimension: usize,
     ) -> Result<SampleGenerator<D>, String> {
-        let tropical_graph = TropicalGraph::from_graph(self, dimension);
+        let tropical_graph = TropicalGraph::from_graph(self, signatures, dimension);
         let table = TropicalSubgraphTable::generate_from_tropical(&tropical_graph, dimension)?;
 
-        Ok(SampleGenerator {
-            loop_signature,
-            table,
-        })
+        Ok(SampleGenerator { table })
     }
 }
 
@@ -114,7 +111,6 @@ fn approx_eq(res: f64, target: f64, tolerance: f64) -> bool {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SampleGenerator<const D: usize> {
-    loop_signature: Vec<Vec<isize>>,
     table: TropicalSubgraphTable,
 }
 
@@ -129,7 +125,6 @@ impl<const D: usize> SampleGenerator<D> {
         let sample = sample(
             &self.table,
             x_space_point,
-            &self.loop_signature,
             &edge_data,
             settings,
             #[cfg(feature = "log")]
@@ -197,7 +192,6 @@ impl<const D: usize> SampleGenerator<D> {
         sample(
             &self.table,
             &upcasted_xspace_point,
-            &self.loop_signature,
             &upcasted_edge_data,
             settings,
             #[cfg(feature = "log")]

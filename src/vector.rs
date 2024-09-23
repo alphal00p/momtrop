@@ -1,5 +1,6 @@
 use crate::float::FloatLike;
 use f128::f128;
+use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign, Index, IndexMut, Mul, Sub};
 
 #[derive(Clone, Copy, Debug)]
@@ -162,7 +163,7 @@ impl<const D: usize> Vector<f128, D> {
 }
 
 #[repr(i8)]
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum SignOrZero {
     Zero = 0,
     Plus = 1,
@@ -212,8 +213,43 @@ impl From<SignOrZero> for i32 {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+impl From<SignOrZero> for f64 {
+    fn from(value: SignOrZero) -> Self {
+        match value {
+            SignOrZero::Zero => 0.,
+            SignOrZero::Plus => 1.,
+            SignOrZero::Minus => -1.,
+        }
+    }
+}
+
+impl Mul<SignOrZero> for SignOrZero {
+    type Output = SignOrZero;
+
+    fn mul(self, rhs: SignOrZero) -> Self::Output {
+        match (self, rhs) {
+            (Self::Zero, _) => Self::Output::Zero,
+            (_, Self::Zero) => Self::Output::Zero,
+            (Self::Plus, Self::Plus) => Self::Output::Plus,
+            (Self::Minus, Self::Minus) => Self::Output::Plus,
+            (Self::Plus, Self::Minus) => Self::Output::Minus,
+            (Self::Minus, Self::Plus) => Self::Output::Minus,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Signature(Vec<SignOrZero>);
+
+impl Signature {
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
 
 impl IntoIterator for Signature {
     type Item = SignOrZero;
@@ -247,13 +283,21 @@ impl<I: Into<SignOrZero>> FromIterator<I> for Signature {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EdgeSignature {
     pub loops: Signature,
     pub externals: Signature,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GraphSignatures {
     pub signatures: Vec<EdgeSignature>,
+}
+
+impl GraphSignatures {
+    pub fn validate_dimensions(&self) -> Result<(), String> {
+        todo!()
+    }
 }
 
 #[cfg(test)]
