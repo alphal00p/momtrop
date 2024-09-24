@@ -246,6 +246,10 @@ impl Signature {
         self.0.len()
     }
 
+    pub fn iter(&self) -> impl Iterator<Item = &SignOrZero> {
+        self.0.iter()
+    }
+
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }

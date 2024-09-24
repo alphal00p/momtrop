@@ -260,7 +260,7 @@ impl TropicalEdge {
 }
 
 /// The bits in the id represent whether the corresponding edge is in the subgraph
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TropicalSubGraphId {
     id: usize,
     num_edges: usize,
@@ -509,13 +509,15 @@ impl TropicalSubgraphTable {
 
 #[cfg(feature = "sympol")]
 mod symbolic_polynomial {
-    use std::sync::Arc;
+    use std::{hash::Hash, sync::Arc};
 
+    use ahash::HashSet;
     use itertools::{izip, Itertools};
 
     use super::{TropicalGraph, TropicalSubGraphId};
     use symbolica::{
         atom::{Atom, FunctionBuilder, Symbol},
+        coefficient::Coefficient,
         domains::{atom::AtomField, integer::IntegerRing},
         poly::{polynomial::MultivariatePolynomial, Variable},
         state::State,
@@ -531,6 +533,13 @@ mod symbolic_polynomial {
     }
 
     impl TropicalGraph {
+        fn get_vertices_in_subgraph(&self, subgraph: TropicalSubGraphId) -> HashSet<u8> {
+            subgraph
+                .contains_edges()
+                .flat_map(|edge| [self.topology[edge].left, self.topology[edge].right])
+                .collect()
+        }
+
         fn get_spanning_trees<'a>(&'a self) -> impl Iterator<Item = TropicalSubGraphId> + 'a {
             let poweset_size = 2usize.pow(self.topology.len() as u32);
             // todo, replace this by a suitable lower and upper bound
@@ -552,12 +561,6 @@ mod symbolic_polynomial {
                 .collect()
         }
 
-        pub fn build_symbolic_edge_shifts(&self) -> Vec<Atom> {
-            (0..self.topology.len())
-                .map(|e| Atom::parse(&format!("pe({})", e)).unwrap())
-                .collect()
-        }
-
         pub fn build_symbolic_masses(&self) -> Vec<Atom> {
             self.topology
                 .iter()
@@ -572,101 +575,165 @@ mod symbolic_polynomial {
                 .collect()
         }
 
-        pub fn get_u_polynomial(&self) -> MultivariatePolynomial<IntegerRing> {
+        pub fn build_symbolic_edge_shifts(&self) -> Vec<Atom> {
+            let num_indep_externals = self.external_vertices.len() - 1;
+            let indep_momenta = (0..num_indep_externals)
+                .map(|e| Atom::parse(&format!("p({})", e)).unwrap())
+                .collect_vec();
+
+            self.signature
+                .signatures
+                .iter()
+                .map(|signature| {
+                    signature
+                        .externals
+                        .iter()
+                        .enumerate()
+                        .map(|(index, &sign)| Atom::new_num(sign as i32) * &indep_momenta[index])
+                        .reduce(|acc, x| acc + x)
+                        .unwrap_or(Atom::new())
+                })
+                .collect()
+        }
+
+        pub fn get_u_and_f_polynomial(
+            &self,
+        ) -> (
+            MultivariatePolynomial<AtomField>,
+            MultivariatePolynomial<AtomField>,
+        ) {
             let x = self.build_feynman_parameter_symbols();
             let vars = Arc::new(x.into_iter().map(Into::<Variable>::into).collect_vec());
 
-            let spanning_trees = self.get_spanning_trees();
-            let mut u = MultivariatePolynomial::new(&IntegerRing, Some(1), vars);
+            let dot = State::get_symbol(&format!("dot"));
 
-            for spanning_tree in spanning_trees {
+            let spanning_trees = self.get_spanning_trees().collect_vec();
+            let mut u = MultivariatePolynomial::new(&AtomField {}, Some(1), vars.clone());
+
+            for spanning_tree in spanning_trees.iter() {
                 let complement_edges = spanning_tree.complement().contains_edges().collect_vec();
                 let exponents = (0..self.topology.len())
                     .map(|e| if complement_edges.contains(&e) { 1 } else { 0 })
                     .collect_vec();
 
-                u.append_monomial(1.into(), &exponents)
+                u.append_monomial(Atom::new_num(1), &exponents)
             }
 
-            u
-        }
+            let mass_symbols = self.build_symbolic_masses();
 
-        pub fn get_l_matrix_from_signature(&self) -> Result<Matrix<AtomField>, String> {
-            let signature = &self.signature;
-            let x = self.build_feynman_parameter_symbols();
+            let mut f = MultivariatePolynomial::new(&AtomField {}, Some(2), vars.clone());
+            let mut mass_part = MultivariatePolynomial::new(&AtomField {}, Some(1), vars.clone());
 
-            let mut vec_res = vec![vec![Atom::new(); self.num_loops]; self.num_loops];
+            for (e, edge) in self.topology.iter().enumerate() {
+                if edge.is_massive {
+                    let exponents = (0..self.topology.len())
+                        .map(|edge_id| if edge_id == e { 1u16 } else { 0 })
+                        .collect_vec();
 
-            for (i, row) in vec_res.iter_mut().enumerate() {
-                for (j, row_elem) in row.iter_mut().enumerate() {
-                    *row_elem = x
-                        .iter()
-                        .enumerate()
-                        .map(|(e, x)| {
-                            Atom::new_var(*x)
-                                * Atom::new_num::<i32>(signature.signatures[e].loops[i].into())
-                                * Atom::new_num::<i32>(signature.signatures[e].loops[j].into())
-                        })
-                        .reduce(|sum, x| sum + x)
-                        .unwrap()
+                    mass_part.append_monomial(mass_symbols[e].clone(), &exponents);
                 }
             }
+            mass_part = mass_part * &u;
 
-            Matrix::from_nested_vec(vec_res, AtomField {})
-        }
+            if self.external_vertices.is_empty() {
+                return (u, f);
+            }
 
-        pub fn get_u_vectors_from_signature(&self) -> Vec<Atom> {
-            let signature = &self.signature;
-            let x = self.build_feynman_parameter_symbols();
-            let p = self.build_symbolic_edge_shifts();
+            f = f + mass_part;
 
-            (0..self.num_loops)
-                .map(|l| {
-                    izip!(&x, &p, &signature.signatures)
-                        .map(|(x_elem, p_elem, signature)| {
-                            Atom::new_var(*x_elem)
-                                * p_elem
-                                * Atom::new_num::<i32>(signature.loops[l].into())
-                        })
-                        .reduce(|sum, t| &sum + t)
-                        .unwrap()
+            let edge_momenta = self.build_symbolic_edge_shifts();
+
+            let spanning_2forests = spanning_trees
+                .iter()
+                .flat_map(|spanning_tree| {
+                    spanning_tree
+                        .contains_edges()
+                        .map(|edge_id| spanning_tree.pop_edge(edge_id))
                 })
-                .collect()
-        }
+                .collect::<HashSet<_>>();
 
-        pub fn get_v_polynomial_from_signature(&self) -> Result<Atom, String> {
-            let x = self.build_feynman_parameter_symbols();
-            let m = self.build_symbolic_masses();
-            let p = self.build_symbolic_edge_shifts();
+            for forest in spanning_2forests.iter() {
+                let forest_components =
+                    self.get_connected_components(&forest.contains_edges().collect_vec());
 
-            let dot = State::get_symbol("dot");
+                let forest_vertices = {
+                    let mut vertices = forest_components
+                        .iter()
+                        .map(|id| self.get_vertices_in_subgraph(*id))
+                        .collect_vec();
 
-            let edge_sum_part = izip!(&x, &m, &p)
-                .map(|(x, m, p)| {
-                    Atom::new_var(*x)
-                        * (m * m + FunctionBuilder::new(dot).add_arg(p).add_arg(p).finish())
-                })
-                .reduce(|sum, term| sum + term)
-                .unwrap_or_else(Atom::new);
+                    if vertices.len() == 1 {
+                        let mut all_vertices =
+                            self.get_vertices_in_subgraph(self.get_full_subgraph_id());
 
-            let u_vectors = self.get_u_vectors_from_signature();
-            let l_matrix = self.get_l_matrix_from_signature()?;
-            let l_matrix_inverse = l_matrix.inv().map_err(|e| format!("{:?}", e))?;
+                        all_vertices.retain(|v| !vertices[0].contains(v));
+                        assert_eq!(
+                            all_vertices.len(),
+                            1,
+                            "empty tree does not have single vertex"
+                        );
+                        vertices.push(all_vertices);
+                    }
 
-            let l_matrix_part = l_matrix_inverse
-                .row_iter()
-                .zip(&u_vectors)
-                .map(|(row, row_u_vector)| {
-                    row.iter()
-                        .zip(&u_vectors)
-                        .map(|(atom, column_u_vector)| atom * row_u_vector * column_u_vector)
-                        .reduce(|sum, term| sum + term)
-                        .unwrap_or_else(Atom::new)
-                })
-                .reduce(|sum, term| sum + term)
-                .unwrap_or_else(Atom::new);
+                    vertices
+                };
 
-            Ok(edge_sum_part - l_matrix_part)
+                // if one of the trees contains no external vertices, the momentum flowing across it is zero
+                if forest_vertices.iter().any(|vertex_set| {
+                    vertex_set
+                        .iter()
+                        .all(|v| !self.external_vertices.contains(v))
+                }) {
+                    continue;
+                }
+
+                assert_eq!(
+                    forest_vertices.len(),
+                    2,
+                    "more than 2 components in spanning 2-forest"
+                );
+
+                let dep_vertex = self
+                    .external_vertices
+                    .last()
+                    .unwrap_or_else(|| unreachable!());
+
+                let forest_to_use_for_pf = forest_vertices
+                    .iter()
+                    .find(|vertex_set| !vertex_set.contains(dep_vertex))
+                    .unwrap_or_else(|| unreachable!());
+
+                let indep_momenta = (0..self.external_vertices.len() - 1)
+                    .map(|e| Atom::parse(&format!("p({})", e)).unwrap())
+                    .collect_vec();
+
+                let p_f = forest_to_use_for_pf
+                    .iter()
+                    .filter(|vertex| self.external_vertices.contains(vertex))
+                    .fold(Atom::new(), |acc, x| acc + &indep_momenta[*x as usize])
+                    .expand();
+
+                let edges_in_forest_complement = forest.complement();
+
+                let exponents = (0..self.topology.len())
+                    .map(|e| {
+                        if edges_in_forest_complement.has_edge(e) {
+                            1u16
+                        } else {
+                            0
+                        }
+                    })
+                    .collect_vec();
+
+                let dot_product = FunctionBuilder::new(dot)
+                    .add_arg(&p_f)
+                    .add_arg(&p_f)
+                    .finish();
+
+                f.append_monomial(dot_product, &exponents);
+            }
+
+            (u, f)
         }
     }
 
@@ -1430,7 +1497,8 @@ mod tests {
     #[cfg(feature = "sympol")]
     fn test_u_polynomial() {
         use symbolica::{
-            domains::integer::IntegerRing,
+            atom::Atom,
+            domains::atom::AtomField,
             poly::{polynomial::MultivariatePolynomial, Variable},
         };
 
@@ -1443,33 +1511,26 @@ mod tests {
             .map(Into::<Variable>::into)
             .collect_vec();
 
-        let u_polynomial = double_triangle_trop.get_u_polynomial();
+        let (u_polynomial, f_polynomial) = double_triangle_trop.get_u_and_f_polynomial();
 
         let vars = std::sync::Arc::new(x);
-        let mut target = MultivariatePolynomial::new(&IntegerRing, Some(1), vars);
-        target.append_monomial(1.into(), &[1, 0, 1, 0, 0]);
-        target.append_monomial(1.into(), &[1, 0, 0, 1, 0]);
-        target.append_monomial(1.into(), &[1, 0, 0, 0, 1]);
-        target.append_monomial(1.into(), &[0, 1, 1, 0, 0]);
-        target.append_monomial(1.into(), &[0, 1, 0, 1, 0]);
-        target.append_monomial(1.into(), &[0, 1, 0, 0, 1]);
-        target.append_monomial(1.into(), &[0, 0, 1, 1, 0]);
-        target.append_monomial(1.into(), &[0, 0, 1, 0, 1]);
+        let mut target = MultivariatePolynomial::new(&AtomField {}, Some(1), vars);
+        target.append_monomial(Atom::new_num(1), &[1, 0, 1, 0, 0]);
+        target.append_monomial(Atom::new_num(1), &[1, 0, 0, 1, 0]);
+        target.append_monomial(Atom::new_num(1), &[1, 0, 0, 0, 1]);
+        target.append_monomial(Atom::new_num(1), &[0, 1, 1, 0, 0]);
+        target.append_monomial(Atom::new_num(1), &[0, 1, 0, 1, 0]);
+        target.append_monomial(Atom::new_num(1), &[0, 1, 0, 0, 1]);
+        target.append_monomial(Atom::new_num(1), &[0, 0, 1, 1, 0]);
+        target.append_monomial(Atom::new_num(1), &[0, 0, 1, 0, 1]);
 
         assert_eq!(target, u_polynomial);
+        println!("f = {}", f_polynomial)
     }
 
     #[test]
     #[cfg(feature = "sympol")]
     fn test_v_polynomial() {
-        let double_triangle_trop =
-            TropicalGraph::from_graph(double_triangle_graph(), double_triangle_signatures(), 3);
-
-        let v_polynomial = double_triangle_trop
-            .get_v_polynomial_from_signature()
-            .unwrap()
-            .expand();
-
-        println!("v: {}", v_polynomial);
+        todo!()
     }
 }
