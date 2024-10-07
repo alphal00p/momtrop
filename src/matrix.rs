@@ -2,6 +2,7 @@ use smallvec::SmallVec;
 use std::ops::{Add, Index, IndexMut, Mul, Sub};
 
 use crate::{float::FloatLike, TropicalSamplingSettings};
+use f128::f128;
 
 #[derive(Debug, Clone, Default)]
 /// square symmetric matrix for use in the tropical sampling algorithm
@@ -264,18 +265,36 @@ impl<T: FloatLike> SquareMatrix<T> {
     }
 }
 
-#[derive(Debug)]
+impl SquareMatrix<f128> {
+    pub fn downcast(&self) -> SquareMatrix<f64> {
+        SquareMatrix {
+            data: self.data.iter().map(|&x| x.into()).collect(),
+            dim: self.dim,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct DecompositionResult<T> {
     pub determinant: T,
     pub inverse: SquareMatrix<T>,
     pub q_transposed_inverse: SquareMatrix<T>,
 }
 
+impl DecompositionResult<f128> {
+    pub fn downcast(&self) -> DecompositionResult<f64> {
+        DecompositionResult {
+            determinant: self.determinant.into(),
+            inverse: self.inverse.downcast(),
+            q_transposed_inverse: self.q_transposed_inverse.downcast(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::assert_approx_eq;
-    use f128::f128;
 
     const EPSILON: f64 = 1e-12;
 

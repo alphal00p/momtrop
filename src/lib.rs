@@ -6,6 +6,7 @@ use log::Logger;
 use f128::f128;
 use float::FloatLike;
 use itertools::Itertools;
+use matrix::{DecompositionResult, SquareMatrix};
 use preprocessing::{TropicalGraph, TropicalSubgraphTable};
 use rand::Rng;
 use sampling::{sample, SamplingError};
@@ -30,6 +31,7 @@ pub struct TropicalSamplingSettings {
     pub upcast_on_failure: bool,
     pub matrix_stability_test: Option<f64>,
     pub print_debug_info: bool,
+    pub return_metadata: bool,
 }
 
 impl Default for TropicalSamplingSettings {
@@ -38,6 +40,7 @@ impl Default for TropicalSamplingSettings {
             upcast_on_failure: true,
             matrix_stability_test: None,
             print_debug_info: false,
+            return_metadata: false,
         }
     }
 }
@@ -72,6 +75,30 @@ pub struct TropicalSampleResult<T: FloatLike, const D: usize> {
     pub u: T,
     pub v: T,
     pub jacobian: T,
+    pub metadata: Option<Metadata<T, D>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Metadata<T: FloatLike, const D: usize> {
+    pub q_vectors: Vec<Vector<T, D>>,
+    pub lambda: T,
+    pub l_matrix: SquareMatrix<T>,
+    pub decompoisiton_result: DecompositionResult<T>,
+    pub u_vectors: Vec<Vector<T, D>>,
+    pub shift: Vec<Vector<T, D>>,
+}
+
+impl<const D: usize> Metadata<f128, D> {
+    pub fn downcast(&self) -> Metadata<f64, D> {
+        Metadata {
+            q_vectors: self.q_vectors.iter().map(|v| v.downcast()).collect_vec(),
+            lambda: self.lambda.into(),
+            l_matrix: self.l_matrix.downcast(),
+            decompoisiton_result: self.decompoisiton_result.downcast(),
+            u_vectors: self.u_vectors.iter().map(|v| v.downcast()).collect_vec(),
+            shift: self.shift.iter().map(|v| v.downcast()).collect(),
+        }
+    }
 }
 
 impl<const D: usize> TropicalSampleResult<f128, D> {
@@ -83,6 +110,7 @@ impl<const D: usize> TropicalSampleResult<f128, D> {
             u: self.u.into(),
             v: self.v.into(),
             jacobian: self.jacobian.into(),
+            metadata: self.metadata.as_ref().map(|metadata| metadata.downcast()),
         }
     }
 }

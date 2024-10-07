@@ -7,7 +7,7 @@ use crate::matrix::{MatrixError, SquareMatrix};
 use crate::mimic_rng::MimicRng;
 use crate::vector::Vector;
 use crate::{float::FloatLike, gamma::inverse_gamma_lr};
-use crate::{TropicalSampleResult, TropicalSamplingSettings};
+use crate::{Metadata, TropicalSampleResult, TropicalSamplingSettings};
 
 fn box_muller<T: FloatLike>(x1: T, x2: T) -> (T, T) {
     let r = (-Into::<T>::into(2.) * x1.ln()).sqrt();
@@ -116,6 +116,19 @@ pub fn sample<T: FloatLike + Into<f64>, const D: usize, #[cfg(feature = "log")] 
         .powf(Into::<T>::into(tropical_subgraph_table.tropical_graph.dod))
         * Into::<T>::into(tropical_subgraph_table.cached_factor);
 
+    let metadata = if settings.return_metadata {
+        Some(Metadata {
+            l_matrix,
+            q_vectors,
+            lambda,
+            shift: compute_only_shift(&decomposed_l_matrix.inverse, &u_vectors),
+            decompoisiton_result: decomposed_l_matrix,
+            u_vectors,
+        })
+    } else {
+        None
+    };
+
     Ok(TropicalSampleResult {
         loop_momenta,
         u_trop,
@@ -123,6 +136,7 @@ pub fn sample<T: FloatLike + Into<f64>, const D: usize, #[cfg(feature = "log")] 
         u,
         v,
         jacobian,
+        metadata,
     })
 }
 
@@ -375,6 +389,24 @@ fn compute_loop_momenta<T: FloatLike, const D: usize>(
                     &(&acc + &q_part) - &u_part
                 },
             )
+        })
+        .collect_vec()
+}
+
+fn compute_only_shift<T: FloatLike, const D: usize>(
+    l_inverse: &SquareMatrix<T>,
+    u_vectors: &[Vector<T, D>],
+) -> Vec<Vector<T, D>> {
+    let num_loops = l_inverse.get_dim();
+    (0..num_loops)
+        .map(|l| {
+            u_vectors
+                .iter()
+                .enumerate()
+                .fold(Vector::new(), |acc, (l_prime, u)| {
+                    let u_part: Vector<T, D> = u * l_inverse[(l, l_prime)];
+                    &acc + &u_part
+                })
         })
         .collect_vec()
 }
