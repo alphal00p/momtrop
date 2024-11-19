@@ -238,14 +238,6 @@ impl<T: FloatLike> SquareMatrix<T> {
         })
     }
 
-    pub fn get_dim(&self) -> usize {
-        self.dim
-    }
-
-    pub fn get_raw_data(self) -> SmallVec<[T; 36]> {
-        self.data
-    }
-
     fn new_identity(dim: usize) -> Self {
         let mut res = Self::new_zeros(dim);
         for i in 0..dim {
@@ -266,6 +258,16 @@ impl<T: FloatLike> SquareMatrix<T> {
         }
 
         res
+    }
+}
+
+impl<T> SquareMatrix<T> {
+    pub fn get_dim(&self) -> usize {
+        self.dim
+    }
+
+    pub fn get_raw_data(self) -> SmallVec<[T; 36]> {
+        self.data
     }
 }
 
