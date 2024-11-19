@@ -17,7 +17,7 @@ mod float;
 pub mod gamma;
 #[cfg(feature = "log")]
 pub mod log;
-mod matrix;
+pub mod matrix;
 mod mimic_rng;
 mod preprocessing;
 mod sampling;
