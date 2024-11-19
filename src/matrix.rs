@@ -242,6 +242,10 @@ impl<T: FloatLike> SquareMatrix<T> {
         self.dim
     }
 
+    pub fn get_raw_data(self) -> SmallVec<[T; 36]> {
+        self.data
+    }
+
     fn new_identity(dim: usize) -> Self {
         let mut res = Self::new_zeros(dim);
         for i in 0..dim {
