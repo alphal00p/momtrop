@@ -200,9 +200,11 @@ impl<T: FloatLike> SquareMatrix<T> {
         }
 
         let mut q_transposed_inverse = SquareMatrix::new_zeros(self.dim);
+        let mut q_transposed = SquareMatrix::new_zeros(self.dim);
         for row in 0..self.dim {
             for col in 0..self.dim {
                 q_transposed_inverse[(row, col)] = inverse_q[(col, row)];
+                q_transposed[(row, col)] = q[(col, row)];
             }
         }
 
@@ -235,6 +237,7 @@ impl<T: FloatLike> SquareMatrix<T> {
             determinant,
             inverse,
             q_transposed_inverse,
+            q_transposed,
         })
     }
 
@@ -284,6 +287,7 @@ impl SquareMatrix<f128> {
 pub struct DecompositionResult<T> {
     pub determinant: T,
     pub inverse: SquareMatrix<T>,
+    pub q_transposed: SquareMatrix<T>,
     pub q_transposed_inverse: SquareMatrix<T>,
 }
 
@@ -291,6 +295,7 @@ impl DecompositionResult<f128> {
     pub fn downcast(&self) -> DecompositionResult<f64> {
         DecompositionResult {
             determinant: self.determinant.into(),
+            q_transposed: self.q_transposed.downcast(),
             inverse: self.inverse.downcast(),
             q_transposed_inverse: self.q_transposed_inverse.downcast(),
         }
