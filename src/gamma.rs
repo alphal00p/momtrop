@@ -1,7 +1,24 @@
 use statrs::function::gamma::{gamma, gamma_lr, gamma_ur};
 
+use crate::float::MomTropFloat;
+
 #[inline]
-pub fn inverse_gamma_lr(a: f64, p: f64, max_n_iter: usize, epsilon_tolerance: f64) -> f64 {
+pub fn inverse_gamma_lr<T: MomTropFloat>(
+    a: &T,
+    p: &T,
+    max_n_iter: usize,
+    epsilon_tolerance: &T,
+) -> T {
+    a.from_f64(inverse_gamma_lr_impl(
+        a.to_f64(),
+        p.to_f64(),
+        max_n_iter,
+        epsilon_tolerance.to_f64(),
+    ))
+}
+
+#[inline]
+pub fn inverse_gamma_lr_impl(a: f64, p: f64, max_n_iter: usize, epsilon_tolerance: f64) -> f64 {
     // this algorithm is taken from https://dl.acm.org/doi/pdf/10.1145/22721.23109
 
     // get an estimate for x0 to start newton iterations.
@@ -189,8 +206,9 @@ mod tests {
         let omega = 1.;
 
         for p in [0.1, 0.3, 0.5, 0.7, 0.9] {
-            let inverse_lower_gamma = inverse_gamma_lr(omega, p, NITER_FOR_TEST, EPSILON_TOLERANCE);
-            assert_approx_eq(gamma_lr(omega, inverse_lower_gamma), p, TOLERANCE);
+            let inverse_lower_gamma =
+                inverse_gamma_lr(&omega, &p, NITER_FOR_TEST, &EPSILON_TOLERANCE);
+            assert_approx_eq(&(gamma_lr(omega, inverse_lower_gamma)), &p, &TOLERANCE);
         }
     }
 
@@ -198,8 +216,9 @@ mod tests {
     fn test_half() {
         let omega = 0.5;
         for p in [0.1, 0.3, 0.5, 0.7, 0.9] {
-            let inverse_lower_gamma = inverse_gamma_lr(omega, p, NITER_FOR_TEST, EPSILON_TOLERANCE);
-            assert_approx_eq(gamma_lr(omega, inverse_lower_gamma), p, TOLERANCE);
+            let inverse_lower_gamma =
+                inverse_gamma_lr(&omega, &p, NITER_FOR_TEST, &EPSILON_TOLERANCE);
+            assert_approx_eq(&(gamma_lr(omega, inverse_lower_gamma)), &p, &TOLERANCE);
         }
     }
 
@@ -207,8 +226,9 @@ mod tests {
     fn test_2() {
         let omega = 2.0;
         for p in [0.1, 0.3, 0.5, 0.7, 0.9] {
-            let inverse_lower_gamma = inverse_gamma_lr(omega, p, NITER_FOR_TEST, EPSILON_TOLERANCE);
-            assert_approx_eq(gamma_lr(omega, inverse_lower_gamma), p, TOLERANCE);
+            let inverse_lower_gamma =
+                inverse_gamma_lr(&omega, &p, NITER_FOR_TEST, &EPSILON_TOLERANCE);
+            assert_approx_eq(&(gamma_lr(omega, inverse_lower_gamma)), &p, &TOLERANCE);
         }
     }
 
@@ -216,8 +236,9 @@ mod tests {
     fn test_10() {
         let omega = 10.0;
         for p in [0.1, 0.3, 0.5, 0.7, 0.9] {
-            let inverse_lower_gamma = inverse_gamma_lr(omega, p, NITER_FOR_TEST, EPSILON_TOLERANCE);
-            assert_approx_eq(gamma_lr(omega, inverse_lower_gamma), p, TOLERANCE);
+            let inverse_lower_gamma =
+                inverse_gamma_lr(&omega, &p, NITER_FOR_TEST, &EPSILON_TOLERANCE);
+            assert_approx_eq(&(gamma_lr(omega, inverse_lower_gamma)), &p, &TOLERANCE);
         }
     }
 }

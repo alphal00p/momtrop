@@ -60,7 +60,7 @@ pub fn sample<T: MomTropFloat, const D: usize, #[cfg(feature = "log")] L: Logger
         #[cfg(not(feature = "log"))]
         println!("lambda: {:?}", lambda);
         #[cfg(feature = "log")]
-        logger.write("momtrop_lambda", &lambda.into())
+        logger.write("momtrop_lambda", &lambda.to_f64())
     }
 
     let (edge_masses, edge_shifts): (Vec<T>, Vec<&Vector<T, D>>) = edge_data
@@ -102,8 +102,8 @@ pub fn sample<T: MomTropFloat, const D: usize, #[cfg(feature = "log")] L: Logger
         }
         #[cfg(feature = "log")]
         {
-            logger.write("momtrop_v", &v_polynomial.into());
-            logger.write("momtrop_u", &decomposed_l_matrix.determinant.into())
+            logger.write("momtrop_v", &v_polynomial.to_f64());
+            logger.write("momtrop_u", &decomposed_l_matrix.determinant.to_f64())
         }
     }
 
@@ -229,7 +229,7 @@ fn permatuhedral_sampling<T: MomTropFloat, #[cfg(feature = "log")] L: Logger>(
         #[cfg(feature = "log")]
         logger.write(
             "momtrop_feynman_parameter_no_rescaling",
-            &x_vec.iter().map(|x| Into::<f64>::into(*x)).collect_vec(),
+            &x_vec.iter().map(|x| x.to_f64()).collect_vec(),
         );
     }
 
@@ -246,10 +246,10 @@ fn permatuhedral_sampling<T: MomTropFloat, #[cfg(feature = "log")] L: Logger>(
         {
             logger.write(
                 "momtrop_feynman_parameter",
-                &x_vec.iter().map(|x| Into::<f64>::into(*x)).collect_vec(),
+                &x_vec.iter().map(|x| x.to_f64()).collect_vec(),
             );
-            logger.write("momtrop_u_trop_no_rescaling", &u_trop.into());
-            logger.write("momtrop_v_trop_no_rescaling", &v_trop.into());
+            logger.write("momtrop_u_trop_no_rescaling", &u_trop.to_f64());
+            logger.write("momtrop_v_trop_no_rescaling", &v_trop.to_f64());
         }
     }
 
