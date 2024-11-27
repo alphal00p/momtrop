@@ -6,7 +6,7 @@ use num::Zero;
 use serde::{Deserialize, Serialize};
 use statrs::function::gamma::gamma;
 
-use crate::{float::FloatLike, Graph, MAX_EDGES};
+use crate::{float::MomTropFloat, Graph, MAX_EDGES};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TropicalGraph {
@@ -460,27 +460,27 @@ impl TropicalSubgraphTable {
 
     /// sample an edge from a subgraph, according to the relevant probability distribution, returns the edge and the subgraph without the edge for later use
     /// Panics if the uniform random number is greater than one or the probability distribution is incorrectly normalized.
-    pub fn sample_edge<T: FloatLike>(
+    pub fn sample_edge<T: MomTropFloat>(
         &self,
-        uniform: T,
+        uniform: &T,
         subgraph: &TropicalSubGraphId,
     ) -> (usize, TropicalSubGraphId) {
         let edges_in_subgraph = subgraph.contains_edges();
-        let j = Into::<T>::into(self.table[subgraph.id].j_function);
+        let j = uniform.from_f64(self.table[subgraph.id].j_function);
 
-        let mut cum_sum = T::zero();
+        let mut cum_sum = uniform.zero();
         for edge in edges_in_subgraph {
             let graph_without_edge = subgraph.pop_edge(edge);
-            let p_e = Into::<T>::into(self.table[graph_without_edge.id].j_function)
-                / Into::<T>::into(j)
-                / Into::<T>::into(self.table[graph_without_edge.id].generalized_dod);
-            cum_sum += p_e;
-            if cum_sum >= uniform {
+            let p_e = uniform.from_f64(self.table[graph_without_edge.id].j_function)
+                / &j
+                / uniform.from_f64(self.table[graph_without_edge.id].generalized_dod);
+            cum_sum += &p_e;
+            if &cum_sum >= uniform {
                 return (edge, graph_without_edge);
             }
         }
 
-        panic!("Sampling could not sample edge, with uniform_random_number: {}, cumulative sum evaluated to: {}", uniform, cum_sum);
+        panic!("Sampling could not sample edge, with uniform_random_number: {:?}, cumulative sum evaluated to: {:?}", uniform, cum_sum);
     }
 
     pub fn get_num_variables(&self) -> usize {
@@ -984,15 +984,15 @@ mod tests {
             let table = subgraph_table.table[i];
             assert!(table.mass_momentum_spanning);
             assert_eq!(table.loop_number, 0);
-            assert_approx_eq(table.generalized_dod, 0.84, TOLERANCE);
-            assert_approx_eq(table.j_function, 3.030_303_030_303_03, TOLERANCE);
+            assert_approx_eq(&table.generalized_dod, &0.84, &TOLERANCE);
+            assert_approx_eq(&table.j_function, &3.030_303_030_303_03, &TOLERANCE);
         }
 
         let final_table = subgraph_table.table[7];
         assert!(final_table.mass_momentum_spanning);
         assert_eq!(final_table.loop_number, 1);
-        assert_approx_eq(final_table.generalized_dod, 0.0, TOLERANCE);
-        assert_approx_eq(final_table.j_function, 10.822_510_822_510_82, TOLERANCE);
+        assert_approx_eq(&final_table.generalized_dod, &0.0, &TOLERANCE);
+        assert_approx_eq(&final_table.j_function, &10.822_510_822_510_82, &TOLERANCE);
     }
 
     #[test]
@@ -1048,23 +1048,23 @@ mod tests {
             let table = subgraph_table.table[i];
             assert!(table.mass_momentum_spanning);
             assert_eq!(table.loop_number, 0);
-            assert_approx_eq(table.generalized_dod, 1.68, TOLERANCE);
-            assert_approx_eq(table.j_function, 1.0, TOLERANCE);
+            assert_approx_eq(&table.generalized_dod, &1.68, &TOLERANCE);
+            assert_approx_eq(&table.j_function, &1.0, &TOLERANCE);
         }
 
         for i in [3, 5, 6] {
             let table = subgraph_table.table[i];
             assert!(table.mass_momentum_spanning);
             assert_eq!(table.loop_number, 1);
-            assert_approx_eq(table.generalized_dod, 0.84, TOLERANCE);
-            assert_approx_eq(table.j_function, 1.190_476_190_476_19, TOLERANCE);
+            assert_approx_eq(&table.generalized_dod, &0.84, &TOLERANCE);
+            assert_approx_eq(&table.j_function, &1.190_476_190_476_19, &TOLERANCE);
         }
 
         let final_table = subgraph_table.table[7];
         assert!(final_table.mass_momentum_spanning);
         assert_eq!(final_table.loop_number, 2);
-        assert_approx_eq(final_table.generalized_dod, 0.0, TOLERANCE);
-        assert_approx_eq(final_table.j_function, 4.251_700_680_272_108, TOLERANCE);
+        assert_approx_eq(&final_table.generalized_dod, &0.0, &TOLERANCE);
+        assert_approx_eq(&final_table.j_function, &4.251_700_680_272_108, &TOLERANCE);
     }
 
     #[test]
@@ -1137,6 +1137,6 @@ mod tests {
 
         let i_tr = subgraph_table.table.last().unwrap().j_function;
 
-        assert_approx_eq(i_tr, 1_818.303_855_640_347_1, TOLERANCE);
+        assert_approx_eq(&i_tr, &1_818.303_855_640_347_1, &TOLERANCE);
     }
 }
