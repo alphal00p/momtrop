@@ -1,6 +1,7 @@
 use itertools::{izip, Itertools};
 
 use super::TropicalSubgraphTable;
+use crate::gamma::GammaError;
 #[cfg(feature = "log")]
 use crate::log::Logger;
 use crate::matrix::{MatrixError, SquareMatrix};
@@ -18,6 +19,7 @@ fn box_muller<T: MomTropFloat>(x1: &T, x2: &T) -> (T, T) {
 #[derive(Debug, Clone, Copy)]
 pub enum SamplingError {
     MatrixError(MatrixError),
+    GammaError(GammaError),
 }
 
 pub fn sample<T: MomTropFloat, const D: usize, #[cfg(feature = "log")] L: Logger>(
@@ -54,7 +56,8 @@ pub fn sample<T: MomTropFloat, const D: usize, #[cfg(feature = "log")] L: Logger
         mimic_rng.get_random_number(Some("sample lambda")),
         50,
         &const_builder.from_f64(5.0),
-    );
+    )
+    .map_err(SamplingError::GammaError)?;
 
     if settings.print_debug_info {
         #[cfg(not(feature = "log"))]

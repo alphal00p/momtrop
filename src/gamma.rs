@@ -2,19 +2,28 @@ use statrs::function::gamma::{gamma, gamma_lr, gamma_ur};
 
 use crate::float::MomTropFloat;
 
+#[derive(Debug, Clone, Copy)]
+pub struct GammaError {}
+
 #[inline]
 pub fn inverse_gamma_lr<T: MomTropFloat>(
     a: &T,
     p: &T,
     max_n_iter: usize,
     epsilon_tolerance: &T,
-) -> T {
-    a.from_f64(inverse_gamma_lr_impl(
+) -> Result<T, GammaError> {
+    let res = inverse_gamma_lr_impl(
         a.to_f64(),
         p.to_f64(),
         max_n_iter,
         epsilon_tolerance.to_f64(),
-    ))
+    );
+
+    if res.is_nan() {
+        Err(GammaError {})
+    } else {
+        Ok(a.from_f64(res))
+    }
 }
 
 #[inline]
@@ -207,7 +216,7 @@ mod tests {
 
         for p in [0.1, 0.3, 0.5, 0.7, 0.9] {
             let inverse_lower_gamma =
-                inverse_gamma_lr(&omega, &p, NITER_FOR_TEST, &EPSILON_TOLERANCE);
+                inverse_gamma_lr(&omega, &p, NITER_FOR_TEST, &EPSILON_TOLERANCE).unwrap();
             assert_approx_eq(&(gamma_lr(omega, inverse_lower_gamma)), &p, &TOLERANCE);
         }
     }
@@ -217,7 +226,7 @@ mod tests {
         let omega = 0.5;
         for p in [0.1, 0.3, 0.5, 0.7, 0.9] {
             let inverse_lower_gamma =
-                inverse_gamma_lr(&omega, &p, NITER_FOR_TEST, &EPSILON_TOLERANCE);
+                inverse_gamma_lr(&omega, &p, NITER_FOR_TEST, &EPSILON_TOLERANCE).unwrap();
             assert_approx_eq(&(gamma_lr(omega, inverse_lower_gamma)), &p, &TOLERANCE);
         }
     }
@@ -227,7 +236,7 @@ mod tests {
         let omega = 2.0;
         for p in [0.1, 0.3, 0.5, 0.7, 0.9] {
             let inverse_lower_gamma =
-                inverse_gamma_lr(&omega, &p, NITER_FOR_TEST, &EPSILON_TOLERANCE);
+                inverse_gamma_lr(&omega, &p, NITER_FOR_TEST, &EPSILON_TOLERANCE).unwrap();
             assert_approx_eq(&(gamma_lr(omega, inverse_lower_gamma)), &p, &TOLERANCE);
         }
     }
@@ -237,7 +246,7 @@ mod tests {
         let omega = 10.0;
         for p in [0.1, 0.3, 0.5, 0.7, 0.9] {
             let inverse_lower_gamma =
-                inverse_gamma_lr(&omega, &p, NITER_FOR_TEST, &EPSILON_TOLERANCE);
+                inverse_gamma_lr(&omega, &p, NITER_FOR_TEST, &EPSILON_TOLERANCE).unwrap();
             assert_approx_eq(&(gamma_lr(omega, inverse_lower_gamma)), &p, &TOLERANCE);
         }
     }
