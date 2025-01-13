@@ -32,7 +32,7 @@ fn integrate_massless_triangle() {
     };
 
     let loop_signature = vec![vec![1]; 3];
-    let sampler = graph.build_sampler(loop_signature, 3).unwrap();
+    let sampler = graph.build_sampler(loop_signature).unwrap();
     let p1 = Vector::from_array([3.0, 4.0, 5.0]);
     let p2 = Vector::from_array([6.0, 7.0, 8.0]);
 

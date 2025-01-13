@@ -33,7 +33,7 @@ fn test_prec_eq() {
     };
 
     let loop_signature = vec![vec![1]; 3];
-    let sampler: SampleGenerator<3> = graph.build_sampler(loop_signature, 3).unwrap();
+    let sampler: SampleGenerator<3> = graph.build_sampler(loop_signature).unwrap();
     let p1 = Vector::from_array([3.0, 4.0, 5.0]);
     let p2 = Vector::from_array([6.0, 7.0, 8.0]);
 
@@ -43,7 +43,7 @@ fn test_prec_eq() {
         (None, (&p1 + &p2)),
     ];
 
-    let x_space_point = vec![(0.1); sampler.get_dimension()];
+    let x_space_point = vec![0.1; sampler.get_dimension()];
     let settings = TropicalSamplingSettings::default();
 
     #[cfg(feature = "log")]

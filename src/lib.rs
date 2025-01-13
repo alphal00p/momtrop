@@ -90,10 +90,9 @@ impl Graph {
     pub fn build_sampler<const D: usize>(
         self,
         loop_signature: Vec<Vec<isize>>,
-        dimension: usize,
     ) -> Result<SampleGenerator<D>, String> {
-        let tropical_graph = TropicalGraph::from_graph(self, dimension);
-        let table = TropicalSubgraphTable::generate_from_tropical(&tropical_graph, dimension)?;
+        let tropical_graph = TropicalGraph::from_graph(self, D);
+        let table = TropicalSubgraphTable::generate_from_tropical(&tropical_graph, D)?;
 
         Ok(SampleGenerator {
             loop_signature,
