@@ -27,16 +27,15 @@ pub const MAX_VERTICES: usize = 256;
 
 #[derive(Debug)]
 pub struct TropicalSamplingSettings {
-    pub upcast_on_failure: bool,
     pub matrix_stability_test: Option<f64>,
     pub print_debug_info: bool,
     pub return_metadata: bool,
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for TropicalSamplingSettings {
     fn default() -> Self {
         Self {
-            upcast_on_failure: true,
             matrix_stability_test: None,
             print_debug_info: false,
             return_metadata: false,
