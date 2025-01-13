@@ -1,13 +1,15 @@
-use crate::float::FloatLike;
-use f128::f128;
-use std::ops::{Add, AddAssign, Index, IndexMut, Mul, Sub};
+use crate::float::MomTropFloat;
+use std::{
+    array,
+    ops::{Add, AddAssign, Index, IndexMut, Mul, Sub},
+};
 
 #[derive(Clone, Copy, Debug)]
-pub struct Vector<T: FloatLike, const D: usize> {
+pub struct Vector<T: MomTropFloat, const D: usize> {
     elements: [T; D],
 }
 
-impl<T: FloatLike, const D: usize> Vector<T, D> {
+impl<T: MomTropFloat, const D: usize> Vector<T, D> {
     #[inline]
     pub fn from_array(elements: [T; D]) -> Self {
         Self { elements }
@@ -23,38 +25,46 @@ impl<T: FloatLike, const D: usize> Vector<T, D> {
     }
 
     #[inline]
+    pub fn zero(&self) -> T {
+        self.elements[0].zero()
+    }
+
+    #[inline]
     pub fn from_slice(elements: &[T; D]) -> Self {
         Self {
-            elements: *elements,
+            elements: elements.clone(),
         }
     }
 
     #[inline]
-    pub fn new() -> Self {
+    pub fn new(&self) -> Self {
         Self {
-            elements: [T::zero(); D],
+            elements: self.elements.each_ref().map(|value| value.zero()),
+        }
+    }
+
+    #[inline]
+    pub fn new_from_num(builder: &T) -> Self {
+        Self {
+            elements: array::from_fn(|_| builder.zero()),
         }
     }
 
     #[inline]
     pub fn squared(&self) -> T {
-        let mut res = T::zero();
-        for elem in self.elements {
-            res += elem * elem
-        }
-
-        res
+        self.elements
+            .iter()
+            .fold(self.elements[0].zero(), |acc, x| acc + x.ref_mul(x))
     }
 
     #[inline]
     pub fn dot(&self, rhs: &Self) -> T {
-        let mut res = T::zero();
-
-        for (&lhs_elem, &rhs_elem) in self.elements.iter().zip(rhs.elements.iter()) {
-            res += lhs_elem * rhs_elem
-        }
-
-        res
+        self.elements
+            .iter()
+            .zip(rhs.elements.iter())
+            .fold(self.elements[0].zero(), |acc, (left, right)| {
+                acc + left.ref_mul(right)
+            })
     }
 
     // We are not going to do zero-dimensional qft!
@@ -66,11 +76,11 @@ impl<T: FloatLike, const D: usize> Vector<T, D> {
 
     #[inline]
     pub fn get_elements(&self) -> [T; D] {
-        self.elements
+        self.elements.clone()
     }
 }
 
-impl<T: FloatLike, const D: usize> Index<usize> for Vector<T, D> {
+impl<T: MomTropFloat, const D: usize> Index<usize> for Vector<T, D> {
     type Output = T;
 
     fn index(&self, index: usize) -> &Self::Output {
@@ -78,91 +88,88 @@ impl<T: FloatLike, const D: usize> Index<usize> for Vector<T, D> {
     }
 }
 
-impl<T: FloatLike, const D: usize> IndexMut<usize> for Vector<T, D> {
+impl<T: MomTropFloat, const D: usize> IndexMut<usize> for Vector<T, D> {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.elements[index]
     }
 }
 
-impl<const D: usize> Vector<f64, D> {
-    pub fn upcast(&self) -> Vector<f128, D> {
-        let mut elements = [f128::new(0.0); D];
-        for (new_element, old_element) in elements.iter_mut().zip(self.elements.iter()) {
-            *new_element = f128::new(*old_element);
-        }
-
-        Vector { elements }
-    }
-}
-
-impl<T: FloatLike, const D: usize> Mul<T> for &Vector<T, D> {
+impl<T: MomTropFloat, const D: usize> Mul<T> for &Vector<T, D> {
     type Output = Vector<T, D>;
 
     fn mul(self, rhs: T) -> Self::Output {
-        let mut res = *self;
-
-        for i in 0..D {
-            res[i] *= rhs;
+        Self::Output {
+            elements: self.elements.each_ref().map(|elem| elem.ref_mul(&rhs)),
         }
-
-        res
     }
 }
 
-impl<T: FloatLike, const D: usize> Add<&Vector<T, D>> for &Vector<T, D> {
+impl<T: MomTropFloat, const D: usize> Mul<&T> for &Vector<T, D> {
+    type Output = Vector<T, D>;
+
+    fn mul(self, rhs: &T) -> Self::Output {
+        Self::Output {
+            elements: self.elements.each_ref().map(|elem| elem.ref_mul(rhs)),
+        }
+    }
+}
+
+impl<T: MomTropFloat, const D: usize> Add<&Vector<T, D>> for &Vector<T, D> {
     type Output = Vector<T, D>;
 
     #[inline]
     fn add(self, rhs: &Vector<T, D>) -> Self::Output {
-        let mut res = Self::Output::new();
+        //Self::Output {
+        //    elements: self
+        //        .elements
+        //        .iter()
+        //        .zip(&rhs.elements)
+        //        .map(|(left, right)| left + right)
+        //        .collect_vec()
+        //        .try_into()
+        //        .unwrap_or_else(|_| unreachable!()),
+        //}
 
-        for i in 0..D {
-            res[i] += self[i] + rhs[i];
+        Self::Output {
+            elements: array::from_fn(|i| self[i].ref_add(&rhs[i])),
         }
-
-        res
     }
 }
 
-impl<T: FloatLike, const D: usize> Sub<&Vector<T, D>> for &Vector<T, D> {
+impl<T: MomTropFloat, const D: usize> Sub<&Vector<T, D>> for &Vector<T, D> {
     type Output = Vector<T, D>;
 
     #[inline]
     fn sub(self, rhs: &Vector<T, D>) -> Self::Output {
-        let mut res = Self::Output::new();
+        //Self::Output {
+        //    elements: self
+        //        .elements
+        //        .iter()
+        //        .zip(&rhs.elements)
+        //        .map(|(left, right)| left - right)
+        //        .collect_vec()
+        //        .try_into()
+        //        .unwrap_or_else(|_| unreachable!()),
+        //}
 
-        for i in 0..D {
-            res[i] += self[i] - rhs[i];
+        Self::Output {
+            elements: array::from_fn(|i| self[i].ref_sub(&rhs[i])),
         }
-
-        res
     }
 }
 
-impl<T: FloatLike, const D: usize> AddAssign for Vector<T, D> {
+impl<T: MomTropFloat, const D: usize> AddAssign for Vector<T, D> {
     #[inline]
     fn add_assign(&mut self, rhs: Self) {
         for i in 0..D {
-            self[i] += rhs[i];
-        }
-    }
-}
-
-impl<const D: usize> Vector<f128, D> {
-    pub fn downcast(&self) -> Vector<f64, D> {
-        let mut new_elements: [f64; D] = [0.0; D];
-        for (new_element, out_element) in new_elements.iter_mut().zip(self.elements) {
-            *new_element = out_element.into();
-        }
-
-        Vector {
-            elements: new_elements,
+            self[i] += &rhs[i];
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+
     use super::Vector;
 
     #[test]
@@ -187,7 +194,7 @@ mod tests {
 
     #[test]
     fn test_new() {
-        let vector: Vector<f64, 3> = Vector::new();
+        let vector = Vector::from_array([1., 2., 3.]).new();
 
         assert_eq!(vector.elements[0], 0.0);
         assert_eq!(vector.elements[1], 0.0);
@@ -207,15 +214,6 @@ mod tests {
         let vector2 = Vector::from_array([-1.0, 0.5]);
         let dot = vector1.dot(&vector2);
         assert_eq!(dot, 0.0);
-    }
-
-    #[test]
-    fn test_upcast() {
-        let vector = Vector::from_array([2.0, 3.0]);
-        let vector_f128 = vector.upcast();
-
-        assert_eq!(vector_f128.elements[0], f128::f128::new(2.0));
-        assert_eq!(vector_f128.elements[1], f128::f128::new(3.0));
     }
 
     #[test]

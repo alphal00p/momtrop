@@ -3,8 +3,7 @@ use std::iter::repeat_with;
 #[cfg(feature = "log")]
 use log::Logger;
 
-use f128::f128;
-use float::FloatLike;
+use float::MomTropFloat;
 use itertools::Itertools;
 use matrix::{DecompositionResult, SquareMatrix};
 use preprocessing::{TropicalGraph, TropicalSubgraphTable};
@@ -13,7 +12,7 @@ use sampling::{sample, SamplingError};
 use serde::{Deserialize, Serialize};
 use vector::Vector;
 
-mod float;
+pub mod float;
 pub mod gamma;
 #[cfg(feature = "log")]
 pub mod log;
@@ -28,16 +27,15 @@ pub const MAX_VERTICES: usize = 256;
 
 #[derive(Debug)]
 pub struct TropicalSamplingSettings {
-    pub upcast_on_failure: bool,
     pub matrix_stability_test: Option<f64>,
     pub print_debug_info: bool,
     pub return_metadata: bool,
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for TropicalSamplingSettings {
     fn default() -> Self {
         Self {
-            upcast_on_failure: true,
             matrix_stability_test: None,
             print_debug_info: false,
             return_metadata: false,
@@ -45,13 +43,12 @@ impl Default for TropicalSamplingSettings {
     }
 }
 
-#[cfg(test)]
-fn assert_approx_eq(res: f64, target: f64, tolerance: f64) {
+pub fn assert_approx_eq<T: MomTropFloat>(res: &T, target: &T, tolerance: &T) {
     if approx_eq(res, target, tolerance) {
     } else {
         panic!(
-            "assert_approx_eq failed: \n{:+e} != \n{:+e} with tolerance {:+e}",
-            res, target, tolerance
+            "assert_approx_eq failed: \n{:?} != \n{:?} with tolerance {:?}",
+            &res, &target, &tolerance
         )
     }
 }
@@ -68,7 +65,7 @@ pub struct Edge {
 }
 
 #[derive(Debug, Clone)]
-pub struct TropicalSampleResult<T: FloatLike, const D: usize> {
+pub struct TropicalSampleResult<T: MomTropFloat, const D: usize> {
     pub loop_momenta: Vec<Vector<T, D>>,
     pub u_trop: T,
     pub v_trop: T,
@@ -79,7 +76,7 @@ pub struct TropicalSampleResult<T: FloatLike, const D: usize> {
 }
 
 #[derive(Debug, Clone)]
-pub struct Metadata<T: FloatLike, const D: usize> {
+pub struct Metadata<T: MomTropFloat, const D: usize> {
     pub q_vectors: Vec<Vector<T, D>>,
     pub lambda: T,
     pub l_matrix: SquareMatrix<T>,
@@ -88,41 +85,13 @@ pub struct Metadata<T: FloatLike, const D: usize> {
     pub shift: Vec<Vector<T, D>>,
 }
 
-impl<const D: usize> Metadata<f128, D> {
-    pub fn downcast(&self) -> Metadata<f64, D> {
-        Metadata {
-            q_vectors: self.q_vectors.iter().map(|v| v.downcast()).collect_vec(),
-            lambda: self.lambda.into(),
-            l_matrix: self.l_matrix.downcast(),
-            decompoisiton_result: self.decompoisiton_result.downcast(),
-            u_vectors: self.u_vectors.iter().map(|v| v.downcast()).collect_vec(),
-            shift: self.shift.iter().map(|v| v.downcast()).collect(),
-        }
-    }
-}
-
-impl<const D: usize> TropicalSampleResult<f128, D> {
-    pub fn downcast(&self) -> TropicalSampleResult<f64, D> {
-        TropicalSampleResult {
-            loop_momenta: self.loop_momenta.iter().map(|v| v.downcast()).collect_vec(),
-            u_trop: self.u_trop.into(),
-            v_trop: self.v_trop.into(),
-            u: self.u.into(),
-            v: self.v.into(),
-            jacobian: self.jacobian.into(),
-            metadata: self.metadata.as_ref().map(|metadata| metadata.downcast()),
-        }
-    }
-}
-
 impl Graph {
     pub fn build_sampler<const D: usize>(
         self,
         loop_signature: Vec<Vec<isize>>,
-        dimension: usize,
     ) -> Result<SampleGenerator<D>, String> {
-        let tropical_graph = TropicalGraph::from_graph(self, dimension);
-        let table = TropicalSubgraphTable::generate_from_tropical(&tropical_graph, dimension)?;
+        let tropical_graph = TropicalGraph::from_graph(self, D);
+        let table = TropicalSubgraphTable::generate_from_tropical(&tropical_graph, D)?;
 
         Ok(SampleGenerator {
             loop_signature,
@@ -131,12 +100,11 @@ impl Graph {
     }
 }
 
-#[cfg(test)]
-fn approx_eq(res: f64, target: f64, tolerance: f64) -> bool {
-    if target == 0.0 {
-        res.abs() < tolerance
+fn approx_eq<T: MomTropFloat>(res: &T, target: &T, tolerance: &T) -> bool {
+    if target == &res.zero() {
+        &res.abs() < tolerance
     } else {
-        ((res - target) / target).abs() < tolerance
+        &((res.ref_sub(target)) / target).abs() < tolerance
     }
 }
 
@@ -147,14 +115,17 @@ pub struct SampleGenerator<const D: usize> {
 }
 
 impl<const D: usize> SampleGenerator<D> {
-    pub fn generate_sample_from_x_space_point<#[cfg(feature = "log")] L: Logger>(
+    pub fn generate_sample_from_x_space_point<
+        T: MomTropFloat,
+        #[cfg(feature = "log")] L: Logger,
+    >(
         &self,
-        x_space_point: &[f64],
-        edge_data: Vec<(Option<f64>, vector::Vector<f64, D>)>,
+        x_space_point: &[T],
+        edge_data: Vec<(Option<T>, vector::Vector<T, D>)>,
         settings: &TropicalSamplingSettings,
         #[cfg(feature = "log")] logger: &L,
-    ) -> Result<TropicalSampleResult<f64, D>, SamplingError> {
-        let sample = sample(
+    ) -> Result<TropicalSampleResult<T, D>, SamplingError> {
+        sample(
             &self.table,
             x_space_point,
             &self.loop_signature,
@@ -162,90 +133,24 @@ impl<const D: usize> SampleGenerator<D> {
             settings,
             #[cfg(feature = "log")]
             logger,
-        );
-
-        match sample {
-            Ok(sample) => Ok(sample),
-            Err(sampling_error) => {
-                if settings.upcast_on_failure {
-                    match sampling_error {
-                        SamplingError::MatrixError(_matrix_error) => {
-                            let res = self.generate_sample_f128_from_x_space_point(
-                                x_space_point,
-                                edge_data,
-                                settings,
-                                #[cfg(feature = "log")]
-                                logger,
-                            );
-
-                            res.map(|res| res.downcast())
-                        }
-                    }
-                } else {
-                    Err(sampling_error)
-                }
-            }
-        }
+        )
     }
 
-    pub fn generate_sample_from_rng<R: Rng, #[cfg(feature = "log")] L: Logger>(
+    pub fn generate_sample_from_rng<T: MomTropFloat, R: Rng, #[cfg(feature = "log")] L: Logger>(
         &self,
-        edge_data: Vec<(Option<f64>, vector::Vector<f64, D>)>,
+        edge_data: Vec<(Option<T>, vector::Vector<T, D>)>,
         settings: &TropicalSamplingSettings,
         rng: &mut R,
         #[cfg(feature = "log")] logger: &L,
-    ) -> Result<TropicalSampleResult<f64, D>, SamplingError> {
+    ) -> Result<TropicalSampleResult<T, D>, SamplingError> {
+        let const_builder = edge_data[0].1.zero();
+
         let num_vars = self.get_dimension();
-        let x_space_point = repeat_with(|| rng.gen::<f64>())
+        let x_space_point = repeat_with(|| const_builder.from_f64(rng.gen::<f64>()))
             .take(num_vars)
             .collect_vec();
 
         self.generate_sample_from_x_space_point(
-            &x_space_point,
-            edge_data,
-            settings,
-            #[cfg(feature = "log")]
-            logger,
-        )
-    }
-
-    pub fn generate_sample_f128_from_x_space_point<#[cfg(feature = "log")] L: Logger>(
-        &self,
-        x_space_point: &[f64],
-        edge_data: Vec<(Option<f64>, vector::Vector<f64, D>)>,
-        settings: &TropicalSamplingSettings,
-        #[cfg(feature = "log")] logger: &L,
-    ) -> Result<TropicalSampleResult<f128, D>, SamplingError> {
-        let upcasted_xspace_point = x_space_point.iter().copied().map(f128::new).collect_vec();
-        let upcasted_edge_data = edge_data
-            .into_iter()
-            .map(|(mass, edge_shift)| (mass.map(f128::new), edge_shift.upcast()))
-            .collect_vec();
-
-        sample(
-            &self.table,
-            &upcasted_xspace_point,
-            &self.loop_signature,
-            &upcasted_edge_data,
-            settings,
-            #[cfg(feature = "log")]
-            logger,
-        )
-    }
-
-    pub fn generate_sample_f128_from_rng<R: Rng, #[cfg(feature = "log")] L: Logger>(
-        &self,
-        edge_data: Vec<(Option<f64>, vector::Vector<f64, D>)>,
-        settings: &TropicalSamplingSettings,
-        rng: &mut R,
-        #[cfg(feature = "log")] logger: &L,
-    ) -> Result<TropicalSampleResult<f128, D>, SamplingError> {
-        let num_vars = self.get_dimension();
-        let x_space_point = repeat_with(|| rng.gen::<f64>())
-            .take(num_vars)
-            .collect_vec();
-
-        self.generate_sample_f128_from_x_space_point(
             &x_space_point,
             edge_data,
             settings,
