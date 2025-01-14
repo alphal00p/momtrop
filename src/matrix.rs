@@ -11,8 +11,11 @@ pub struct SquareMatrix<T> {
 }
 
 #[derive(Clone, Copy, Debug)]
+/// Error type for when problems occur in the matrix algorithms
 pub enum MatrixError {
+    /// Used when the determinant of L is zero.
     ZeroDet,
+    /// Used when the stability condition is not met.
     Unstable,
 }
 
@@ -290,6 +293,7 @@ impl<T> SquareMatrix<T> {
 }
 
 #[derive(Debug, Clone)]
+/// Struct containing the result of the matrix algorithms. q is the Cholesky decomposition of l.
 pub struct DecompositionResult<T: MomTropFloat> {
     pub determinant: T,
     pub inverse: SquareMatrix<T>,
