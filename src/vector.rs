@@ -5,6 +5,7 @@ use std::{
 };
 
 #[derive(Clone, Copy, Debug)]
+/// Vector struct, used to return loop momenta and receive the shifts of propagators.
 pub struct Vector<T: MomTropFloat, const D: usize> {
     elements: [T; D],
 }
@@ -25,6 +26,7 @@ impl<T: MomTropFloat, const D: usize> Vector<T, D> {
     }
 
     #[inline]
+    /// Create a zero valued scalar from a vector
     pub fn zero(&self) -> T {
         self.elements[0].zero()
     }
@@ -37,6 +39,7 @@ impl<T: MomTropFloat, const D: usize> Vector<T, D> {
     }
 
     #[inline]
+    /// Create a zero vector.
     pub fn new(&self) -> Self {
         Self {
             elements: self.elements.each_ref().map(|value| value.zero()),
@@ -44,6 +47,7 @@ impl<T: MomTropFloat, const D: usize> Vector<T, D> {
     }
 
     #[inline]
+    /// Create a zero vector using `builder.zero()`.
     pub fn new_from_num(builder: &T) -> Self {
         Self {
             elements: array::from_fn(|_| builder.zero()),
@@ -51,6 +55,7 @@ impl<T: MomTropFloat, const D: usize> Vector<T, D> {
     }
 
     #[inline]
+    /// Compute the square of a vector.
     pub fn squared(&self) -> T {
         self.elements
             .iter()
@@ -58,6 +63,7 @@ impl<T: MomTropFloat, const D: usize> Vector<T, D> {
     }
 
     #[inline]
+    /// Compute the dot product of two vectors.
     pub fn dot(&self, rhs: &Self) -> T {
         self.elements
             .iter()
@@ -75,6 +81,7 @@ impl<T: MomTropFloat, const D: usize> Vector<T, D> {
     }
 
     #[inline]
+    /// Get the array containing the elements of the vector.
     pub fn get_elements(&self) -> [T; D] {
         self.elements.clone()
     }
