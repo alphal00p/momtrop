@@ -4,6 +4,9 @@ use std::fmt::Debug;
 use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
 
 #[allow(clippy::wrong_self_convention)]
+/// Trait that allows momtrop to use arbitrary floating-point types supplied by the user.
+/// Functions that return constants like `one()` require `self` has argument to facilitate more
+/// advanced arbitrary precision types.
 pub trait MomTropFloat:
     for<'a> RefAdd<&'a Self, Output = Self>
     + for<'a> RefSub<&'a Self, Output = Self>
@@ -31,20 +34,34 @@ pub trait MomTropFloat:
     + Debug
     + PartialOrd
 {
+    /// Returns 1.
     fn one(&self) -> Self;
+    /// Return natural logarithm of `self`.
     fn ln(&self) -> Self;
+    /// Return exponential of `self`.
     fn exp(&self) -> Self;
+    /// Return  cosine of `self`.
     fn cos(&self) -> Self;
+    /// Return  sine of `self`.
     fn sin(&self) -> Self;
+    /// Raise `self` to `power`.
     fn powf(&self, power: &Self) -> Self;
+    /// Return `sqrt` of `self`.
     fn sqrt(&self) -> Self;
+    /// Create a new value from an `isize`.
     fn from_isize(&self, value: isize) -> Self;
+    /// Create a new value from a `f64``.
     fn from_f64(&self, value: f64) -> Self;
+    /// Return inverse of `self`.
     fn inv(&self) -> Self;
+    /// Convert `self` to `f64`.
     fn to_f64(&self) -> f64;
+    /// Returns 0.
     fn zero(&self) -> Self;
+    /// Return absolute value of `self`.
     fn abs(&self) -> Self;
     #[allow(non_snake_case)]
+    /// Return pi.
     fn PI(&self) -> Self;
 }
 
