@@ -3,9 +3,11 @@ use statrs::function::gamma::{gamma, gamma_lr, gamma_ur};
 use crate::float::MomTropFloat;
 
 #[derive(Debug, Clone, Copy)]
+/// Error type for when sampling from the gamma distribution has failed.
 pub struct GammaError {}
 
 #[inline]
+/// Compute the inverse lower gamma function. Used to sample from the gamma distribution by the inverse CDF method.
 pub fn inverse_gamma_lr<T: MomTropFloat>(
     a: &T,
     p: &T,
