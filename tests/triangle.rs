@@ -53,21 +53,13 @@ fn integrate_massless_triangle() {
         (None, (&p1 + &p2)),
     ];
 
-    let settings = TropicalSamplingSettings {
+    let settings: TropicalSamplingSettings<'_, ()> = TropicalSamplingSettings {
         ..Default::default()
     };
-    #[cfg(feature = "log")]
-    let logger = momtrop::log::DummyLogger {};
 
     for _ in 0..n_samples {
         let sample = sampler
-            .generate_sample_from_rng(
-                edge_data.clone(),
-                &settings,
-                &mut rng,
-                #[cfg(feature = "log")]
-                &logger,
-            )
+            .generate_sample_from_rng(edge_data.clone(), &settings, &mut rng)
             .unwrap();
 
         let energy_0 = energy_0(&sample.loop_momenta[0]);

@@ -3,8 +3,6 @@ pub trait Logger {
     fn write<T: Serialize>(&self, msg: &str, data: &T);
 }
 
-pub struct DummyLogger {}
-
-impl Logger for DummyLogger {
+impl Logger for () {
     fn write<T: Serialize>(&self, _msg: &str, _data: &T) {}
 }

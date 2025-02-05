@@ -1,20 +1,16 @@
-use std::iter::repeat_with;
-
-#[cfg(feature = "log")]
-use log::Logger;
-
 use float::MomTropFloat;
 use itertools::Itertools;
+use log::Logger;
 use matrix::{DecompositionResult, SquareMatrix};
 use preprocessing::{TropicalGraph, TropicalSubgraphTable};
 use rand::Rng;
 use sampling::{sample, SamplingError};
 use serde::{Deserialize, Serialize};
+use std::iter::repeat_with;
 use vector::Vector;
 
 pub mod float;
 pub mod gamma;
-#[cfg(feature = "log")]
 pub mod log;
 pub mod matrix;
 mod mimic_rng;
@@ -29,7 +25,7 @@ pub const MAX_VERTICES: usize = 256;
 
 #[derive(Debug)]
 /// Struct containing all runtime settings.
-pub struct TropicalSamplingSettings {
+pub struct TropicalSamplingSettings<'a, L: Logger = ()> {
     /// `matrix_stability_test` tests the numerical stability
     /// of some of the matrix routines used during sampling. This is done by checking
     /// how far L L^-1 is from the identity matrix in terms of a L_2_1 norm. If this distance is
@@ -41,15 +37,17 @@ pub struct TropicalSamplingSettings {
     /// Enabling `return_metadata` provides access to some of the intermediate results. This is useful for
     /// exploring new applications.
     pub return_metadata: bool,
+    pub logger: Option<&'a L>,
 }
 
 #[allow(clippy::derivable_impls)]
-impl Default for TropicalSamplingSettings {
+impl<'a, L: Logger> Default for TropicalSamplingSettings<'a, L> {
     fn default() -> Self {
         Self {
             matrix_stability_test: None,
             print_debug_info: false,
             return_metadata: false,
+            logger: None,
         }
     }
 }
@@ -152,15 +150,11 @@ pub struct SampleGenerator<const D: usize> {
 impl<const D: usize> SampleGenerator<D> {
     /// Generate a sample point for a given random point `x_space_point` in the unit hypercube.
     /// `edge_data` contains masses and shifs of each propagator.
-    pub fn generate_sample_from_x_space_point<
-        T: MomTropFloat,
-        #[cfg(feature = "log")] L: Logger,
-    >(
+    pub fn generate_sample_from_x_space_point<T: MomTropFloat, L: Logger>(
         &self,
         x_space_point: &[T],
         edge_data: Vec<(Option<T>, vector::Vector<T, D>)>,
-        settings: &TropicalSamplingSettings,
-        #[cfg(feature = "log")] logger: &L,
+        settings: &TropicalSamplingSettings<L>,
     ) -> Result<TropicalSampleResult<T, D>, SamplingError> {
         sample(
             &self.table,
@@ -168,19 +162,16 @@ impl<const D: usize> SampleGenerator<D> {
             &self.loop_signature,
             &edge_data,
             settings,
-            #[cfg(feature = "log")]
-            logger,
         )
     }
 
     /// Alternative to `generate_sample_from_x_space_point`. Uses a `Rng` to generate the point
     /// in the unit hypercube.
-    pub fn generate_sample_from_rng<T: MomTropFloat, R: Rng, #[cfg(feature = "log")] L: Logger>(
+    pub fn generate_sample_from_rng<T: MomTropFloat, R: Rng, L: Logger>(
         &self,
         edge_data: Vec<(Option<T>, vector::Vector<T, D>)>,
-        settings: &TropicalSamplingSettings,
+        settings: &TropicalSamplingSettings<L>,
         rng: &mut R,
-        #[cfg(feature = "log")] logger: &L,
     ) -> Result<TropicalSampleResult<T, D>, SamplingError> {
         let const_builder = edge_data[0].1.zero();
 
@@ -189,13 +180,7 @@ impl<const D: usize> SampleGenerator<D> {
             .take(num_vars)
             .collect_vec();
 
-        self.generate_sample_from_x_space_point(
-            &x_space_point,
-            edge_data,
-            settings,
-            #[cfg(feature = "log")]
-            logger,
-        )
+        self.generate_sample_from_x_space_point(&x_space_point, edge_data, settings)
     }
 
     /// Dimensionality of the unit hypercube, should match the length of `x_space_point`.
