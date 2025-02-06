@@ -26,7 +26,7 @@ pub const MAX_EDGES: usize = 64;
 /// Maximum number of vertices supported by momtrop.
 pub const MAX_VERTICES: usize = 256;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// Struct containing all runtime settings.
 pub struct TropicalSamplingSettings<L: Logger = ()> {
     /// `matrix_stability_test` tests the numerical stability

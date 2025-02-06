@@ -1,4 +1,5 @@
 use itertools::{izip, Itertools};
+use pyo3::exceptions::PyValueError;
 
 use super::TropicalSubgraphTable;
 use crate::gamma::GammaError;
@@ -19,6 +20,21 @@ fn box_muller<T: MomTropFloat>(x1: &T, x2: &T) -> (T, T) {
 pub enum SamplingError {
     MatrixError(MatrixError),
     GammaError(GammaError),
+}
+
+#[cfg(feature = "python_api")]
+impl From<SamplingError> for pyo3::PyErr {
+    fn from(value: SamplingError) -> Self {
+        let error_string = match value {
+            SamplingError::MatrixError(error) => match error {
+                MatrixError::Unstable => "Matrix operations deemed unstable",
+                MatrixError::ZeroDet => "Detected zero determinant",
+            },
+            SamplingError::GammaError(_) => "Sampling gamma distribution failed",
+        };
+
+        PyValueError::new_err(error_string)
+    }
 }
 
 pub fn sample<T: MomTropFloat, const D: usize, L: Logger>(

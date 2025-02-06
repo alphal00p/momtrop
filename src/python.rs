@@ -79,9 +79,32 @@ impl PythonSampler {
     pub fn get_num_edges(&self) -> usize {
         self.sampler.get_num_edges()
     }
+
+    #[pyo3(signature = (x_space_point, edge_data, settings, force_sector=None))]
+    pub fn sample_point(
+        &self,
+        x_space_point: Vec<f64>,
+        edge_data: PythonEdgeData,
+        settings: PythonSettings,
+        force_sector: Option<Vec<usize>>,
+    ) -> PyResult<PythonTropicalSampleResult> {
+        let rust_result = self.sampler.generate_sample_from_x_space_point(
+            &x_space_point,
+            edge_data.data,
+            &settings.settings,
+            force_sector.as_deref(),
+        )?;
+
+        let python_result = PythonTropicalSampleResult {
+            result: rust_result,
+        };
+
+        Ok(python_result)
+    }
 }
 
 #[pyclass(name = "Settings")]
+#[derive(Clone)]
 pub struct PythonSettings {
     settings: TropicalSamplingSettings,
 }
@@ -107,6 +130,7 @@ impl PythonSettings {
 }
 
 #[pyclass(name = "Vector")]
+#[derive(Clone)]
 pub struct PythonVector {
     vector: Vector<f64, 3>,
 }
@@ -143,6 +167,35 @@ impl PythonTropicalSampleResult {
     }
 }
 
+#[pyclass(name = "PythonEdgeData")]
+#[derive(Clone)]
+pub struct PythonEdgeData {
+    data: Vec<(Option<f64>, Vector<f64, 3>)>,
+}
+
+#[pymethods]
+impl PythonEdgeData {
+    #[new]
+    fn new(masses: Vec<f64>, external_shifts: Vec<PythonVector>) -> PyResult<Self> {
+        if masses.len() != external_shifts.len() {
+            return Err(PyValueError::new_err(
+                "mass vector and shifts vector of unequal lengt",
+            ));
+        }
+
+        let edge_data = masses
+            .into_iter()
+            .zip(external_shifts)
+            .map(|(mass, shift)| {
+                let option_mass = if mass == 0.0 { None } else { Some(mass) };
+                (option_mass, shift.vector)
+            })
+            .collect();
+
+        Ok(Self { data: edge_data })
+    }
+}
+
 #[pymodule]
 #[pyo3(name = "momtrop")]
 fn momtrop(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -152,5 +205,6 @@ fn momtrop(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PythonSettings>()?;
     m.add_class::<PythonVector>()?;
     m.add_class::<PythonTropicalSampleResult>()?;
+    m.add_class::<PythonEdgeData>()?;
     Ok(())
 }
