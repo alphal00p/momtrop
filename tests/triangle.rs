@@ -53,7 +53,7 @@ fn integrate_massless_triangle() {
         (None, (&p1 + &p2)),
     ];
 
-    let settings: TropicalSamplingSettings<'_, ()> = TropicalSamplingSettings {
+    let settings: TropicalSamplingSettings<()> = TropicalSamplingSettings {
         ..Default::default()
     };
 
