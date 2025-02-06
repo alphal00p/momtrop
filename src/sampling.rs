@@ -53,7 +53,7 @@ pub fn sample<T: MomTropFloat, const D: usize, L: Logger>(
     .map_err(SamplingError::GammaError)?;
 
     if settings.print_debug_info {
-        if let Some(logger) = settings.logger {
+        if let Some(logger) = &settings.logger {
             logger.write("momtrop_lambda", &lambda.to_f64());
         } else {
             println!("lambda: {:?}", lambda);
@@ -92,7 +92,7 @@ pub fn sample<T: MomTropFloat, const D: usize, L: Logger>(
     );
 
     if settings.print_debug_info {
-        if let Some(logger) = settings.logger {
+        if let Some(logger) = &settings.logger {
             logger.write("momtrop_v", &v_polynomial.to_f64());
             logger.write("momtrop_u", &decomposed_l_matrix.determinant.to_f64())
         } else {
@@ -217,7 +217,7 @@ fn permatuhedral_sampling<T: MomTropFloat, L: Logger>(
     );
 
     if settings.print_debug_info {
-        if let Some(logger) = settings.logger {
+        if let Some(logger) = &settings.logger {
             logger.write(
                 "momtrop_feynman_parameter_no_rescaling",
                 &x_vec.iter().map(|x| x.to_f64()).collect_vec(),
@@ -230,7 +230,7 @@ fn permatuhedral_sampling<T: MomTropFloat, L: Logger>(
     x_vec.iter_mut().for_each(|x| *x *= &scaling);
 
     if settings.print_debug_info {
-        if let Some(logger) = settings.logger {
+        if let Some(logger) = &settings.logger {
             logger.write(
                 "momtrop_feynman_parameter",
                 &x_vec.iter().map(|x| x.to_f64()).collect_vec(),

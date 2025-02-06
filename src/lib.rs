@@ -28,7 +28,7 @@ pub const MAX_VERTICES: usize = 256;
 
 #[derive(Debug)]
 /// Struct containing all runtime settings.
-pub struct TropicalSamplingSettings<'a, L: Logger = ()> {
+pub struct TropicalSamplingSettings<L: Logger = ()> {
     /// `matrix_stability_test` tests the numerical stability
     /// of some of the matrix routines used during sampling. This is done by checking
     /// how far L L^-1 is from the identity matrix in terms of a L_2_1 norm. If this distance is
@@ -41,11 +41,11 @@ pub struct TropicalSamplingSettings<'a, L: Logger = ()> {
     /// exploring new applications.
     pub return_metadata: bool,
     /// Optional logger for logging messages during sampling.
-    pub logger: Option<&'a L>,
+    pub logger: Option<L>,
 }
 
 #[allow(clippy::derivable_impls)]
-impl<'a, L: Logger> Default for TropicalSamplingSettings<'a, L> {
+impl<L: Logger> Default for TropicalSamplingSettings<L> {
     fn default() -> Self {
         Self {
             matrix_stability_test: None,

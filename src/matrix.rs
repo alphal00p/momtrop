@@ -321,7 +321,7 @@ mod tests {
         let mut test_matrix = builder_matrix_f64().new_zeros(2);
         println!("build matrix");
 
-        let settings: TropicalSamplingSettings<'_, ()> = TropicalSamplingSettings {
+        let settings: TropicalSamplingSettings<()> = TropicalSamplingSettings {
             print_debug_info: true,
             ..Default::default()
         };
@@ -372,7 +372,7 @@ mod tests {
     #[test]
     fn test_decompose_for_tropical_4x4() {
         let mut wilson_matrix = builder_matrix_f64().new_zeros(4);
-        let settings: TropicalSamplingSettings<'_, ()> = TropicalSamplingSettings::default();
+        let settings: TropicalSamplingSettings<()> = TropicalSamplingSettings::default();
 
         wilson_matrix[(0, 0)] = 5.0;
         wilson_matrix[(1, 1)] = 10.0;
