@@ -174,6 +174,10 @@ fn sample_feynman_parameters_in_sector<T: MomTropFloat, L: Logger>(
         }
 
         graph = graph_without_edge;
+        if graph.is_empty() {
+            break;
+        }
+
         let xi = rng.get_random_number(Some("sample xi"));
         kappa *= &xi.powf(
             &xi.from_f64(tropical_subgraph_table.table[graph.get_id()].generalized_dod)
@@ -244,17 +248,12 @@ fn permatuhedral_sampling<T: MomTropFloat, L: Logger>(
     rng: &mut MimicRng<T>,
     settings: &TropicalSamplingSettings<L>,
 ) -> PermatuhedralSamplingResult<T> {
-    let mut kappa = rng.one();
-    let mut x_vec = vec![rng.zero(); tropical_subgraph_table.tropical_graph.topology.len()];
-    let mut u_trop = rng.one();
-    let mut v_trop = rng.one();
-
     let mut graph = tropical_subgraph_table
         .tropical_graph
         .get_full_subgraph_id();
 
+    let mut sector = Vec::with_capacity(tropical_subgraph_table.tropical_graph.topology.len());
     while !graph.is_empty() {
-        // this saves a random variable
         let (edge, graph_without_edge) = if graph.has_one_edge() {
             let edge = graph
                 .contains_edges()
@@ -266,85 +265,11 @@ fn permatuhedral_sampling<T: MomTropFloat, L: Logger>(
             tropical_subgraph_table.sample_edge(rng.get_random_number(Some("sample_edge")), &graph)
         };
 
-        x_vec[edge] = kappa.clone();
-
-        if tropical_subgraph_table.table[graph.get_id()].mass_momentum_spanning
-            && !tropical_subgraph_table.table[graph_without_edge.get_id()].mass_momentum_spanning
-        {
-            v_trop = x_vec[edge].clone();
-        }
-
-        if tropical_subgraph_table.table[graph_without_edge.get_id()].loop_number
-            < tropical_subgraph_table.table[graph.get_id()].loop_number
-        {
-            u_trop *= &x_vec[edge];
-        }
-
-        // Terminate early, so we do not waste a random variable in the final step
+        sector.push(edge);
         graph = graph_without_edge;
-        if graph.is_empty() {
-            break;
-        }
-        let xi = rng.get_random_number(Some("sample xi"));
-        kappa *= &xi.powf(
-            &xi.from_f64(tropical_subgraph_table.table[graph.get_id()].generalized_dod)
-                .inv(),
-        );
     }
 
-    let xi_trop = u_trop.ref_mul(&v_trop);
-
-    // perform rescaling for numerical stability
-    let target = u_trop.powf(&xi_trop.from_f64(-(tropical_subgraph_table.dimension as f64 / 2.0)))
-        * (u_trop.ref_div(&xi_trop))
-            .powf(&xi_trop.from_f64(tropical_subgraph_table.tropical_graph.dod));
-
-    let loop_number = tropical_subgraph_table.table.last().unwrap().loop_number;
-    let scaling = target.powf(
-        &xi_trop
-            .from_f64(
-                tropical_subgraph_table.dimension as f64 / 2.0 * loop_number as f64
-                    + tropical_subgraph_table.tropical_graph.dod,
-            )
-            .inv(),
-    );
-
-    if settings.print_debug_info {
-        if let Some(logger) = &settings.logger {
-            logger.write(
-                "momtrop_feynman_parameter_no_rescaling",
-                &x_vec.iter().map(|x| x.to_f64()).collect_vec(),
-            );
-        } else {
-            println!("feynman parameters before rescaling: {:?}", x_vec);
-        }
-    }
-
-    x_vec.iter_mut().for_each(|x| *x *= &scaling);
-
-    if settings.print_debug_info {
-        if let Some(logger) = &settings.logger {
-            logger.write(
-                "momtrop_feynman_parameter",
-                &x_vec.iter().map(|x| x.to_f64()).collect_vec(),
-            );
-            logger.write("momtrop_u_trop_no_rescaling", &u_trop.to_f64());
-            logger.write("momtrop_v_trop_no_rescaling", &v_trop.to_f64());
-        } else {
-            println!("sampled feynman parameters: {:?}", &x_vec);
-            println!("u_trop before rescaling: {:?}", &u_trop);
-            println!("v_trop before rescaling: {:?}", &v_trop);
-        }
-    }
-
-    u_trop = u_trop.one();
-    v_trop = v_trop.one();
-
-    PermatuhedralSamplingResult {
-        x: x_vec,
-        u_trop,
-        v_trop,
-    }
+    sample_feynman_parameters_in_sector(tropical_subgraph_table, &sector, rng, settings)
 }
 
 /// Compute the L x L matrix from the feynman parameters and the signature matrix

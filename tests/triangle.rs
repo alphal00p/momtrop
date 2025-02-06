@@ -1,4 +1,6 @@
-use momtrop::{float::MomTropFloat, vector::Vector, Edge, Graph, TropicalSamplingSettings};
+use momtrop::{
+    assert_approx_eq, float::MomTropFloat, vector::Vector, Edge, Graph, TropicalSamplingSettings,
+};
 use rand::SeedableRng;
 
 /// integrate a massless triangle with LTD and tropicalsampling
@@ -102,8 +104,7 @@ fn integrate_massless_triangle() {
 
     assert!(max_pol_ratio <= (p10.one() / p1.squared()).powf(sampler.get_dod()));
 
-    // this is the exact value with this seed, needs a more robust test
-    assert_eq!(9.758362839019336e-5, avg);
+    assert_approx_eq(&9.758362839019336e-5, &avg, &0.01);
 }
 
 fn energy_0(k: &Vector<f64, 3>) -> f64 {
