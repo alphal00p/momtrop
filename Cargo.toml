@@ -5,6 +5,14 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lib]
+name = "momtrop"
+crate-type = ["lib"]
+
+
+[features]
+python_api = ["pyo3"]
+
 [[bench]]
 name = "gamma_bench"
 harness = false
@@ -16,6 +24,12 @@ harness = false
 [profile.release]
 lto = "fat"
 
+[dependencies.pyo3]
+features = ["extension-module", "py-clone"]
+optional = true
+version = "0.23"
+
+
 [dependencies]
 smallvec = "1.13.2"
 ahash = "0.8.11"
@@ -25,4 +39,5 @@ itertools = "0.12.1"
 rand = "0.8.5"
 criterion = "0.5.1"
 serde = { version = "1.0", features = ["derive"] }
+
 ref-ops = "0.2.5"
