@@ -3,7 +3,7 @@ use pyo3::{
     exceptions::PyValueError,
     pyclass, pymethods, pymodule,
     types::{PyModule, PyModuleMethods},
-    Bound, PyResult,
+    Bound, IntoPyObject, PyResult,
 };
 
 use crate::{
@@ -143,6 +143,13 @@ impl PythonVector {
             vector: Vector::from_array([x, y, z]),
         }
     }
+
+    fn __repr__(&self) -> PyResult<impl IntoPyObject> {
+        Ok(format!(
+            "x: {}, y: {}, z: {}",
+            self.vector[0], self.vector[1], self.vector[2]
+        ))
+    }
 }
 
 #[pyclass(name = "TropicalSampleResult")]
@@ -152,6 +159,7 @@ pub struct PythonTropicalSampleResult {
 
 #[pymethods]
 impl PythonTropicalSampleResult {
+    #[getter]
     fn get_loop_momenta(&self) -> Vec<PythonVector> {
         self.result
             .loop_momenta
@@ -162,6 +170,7 @@ impl PythonTropicalSampleResult {
             .collect()
     }
 
+    #[getter]
     fn get_jacobian(&self) -> f64 {
         self.result.jacobian
     }
