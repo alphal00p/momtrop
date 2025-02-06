@@ -47,7 +47,12 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     group.bench_function("triangle", |b| {
         b.iter(|| {
-            sampler.generate_sample_from_x_space_point(&x_space_point, edge_data.clone(), &settings)
+            sampler.generate_sample_from_x_space_point(
+                &x_space_point,
+                edge_data.clone(),
+                &settings,
+                None,
+            )
         })
     });
 }

@@ -27,14 +27,23 @@ pub fn sample<T: MomTropFloat, const D: usize, L: Logger>(
     loop_signature: &[Vec<isize>],
     edge_data: &[(Option<T>, Vector<T, D>)],
     settings: &TropicalSamplingSettings<L>,
+    force_sector: Option<&[usize]>,
 ) -> Result<TropicalSampleResult<T, D>, SamplingError> {
     let num_loops = tropical_subgraph_table.tropical_graph.num_loops;
 
     let mut mimic_rng = MimicRng::new(x_space_point);
     let const_builder = mimic_rng.zero();
 
-    let permatuhedral_sample =
-        permatuhedral_sampling(tropical_subgraph_table, &mut mimic_rng, settings);
+    let permatuhedral_sample = if let Some(sector) = force_sector {
+        sample_feynman_parameters_in_sector(
+            tropical_subgraph_table,
+            sector,
+            &mut mimic_rng,
+            settings,
+        )
+    } else {
+        permatuhedral_sampling(tropical_subgraph_table, &mut mimic_rng, settings)
+    };
 
     let l_matrix = compute_l_matrix(&permatuhedral_sample.x, loop_signature);
     let decomposed_l_matrix = match l_matrix.decompose_for_tropical(settings) {

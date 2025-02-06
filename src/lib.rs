@@ -161,6 +161,7 @@ impl<const D: usize> SampleGenerator<D> {
         x_space_point: &[T],
         edge_data: Vec<(Option<T>, vector::Vector<T, D>)>,
         settings: &TropicalSamplingSettings<L>,
+        force_sector: Option<&[usize]>,
     ) -> Result<TropicalSampleResult<T, D>, SamplingError> {
         sample(
             &self.table,
@@ -168,6 +169,7 @@ impl<const D: usize> SampleGenerator<D> {
             &self.loop_signature,
             &edge_data,
             settings,
+            force_sector,
         )
     }
 
@@ -186,7 +188,7 @@ impl<const D: usize> SampleGenerator<D> {
             .take(num_vars)
             .collect_vec();
 
-        self.generate_sample_from_x_space_point(&x_space_point, edge_data, settings)
+        self.generate_sample_from_x_space_point(&x_space_point, edge_data, settings, None)
     }
 
     /// Dimensionality of the unit hypercube, should match the length of `x_space_point`.
