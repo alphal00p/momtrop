@@ -101,6 +101,10 @@ impl PythonSampler {
 
         Ok(python_result)
     }
+
+    pub fn get_subgraph_pdf(&self, subgraph: Vec<usize>) -> Vec<f64> {
+        self.sampler.table.get_subgraph_pdf(&subgraph)
+    }
 }
 
 #[pyclass(name = "Settings")]

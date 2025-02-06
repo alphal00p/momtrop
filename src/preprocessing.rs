@@ -483,6 +483,23 @@ impl TropicalSubgraphTable {
         panic!("Sampling could not sample edge, with uniform_random_number: {:?}, cumulative sum evaluated to: {:?}", uniform, cum_sum);
     }
 
+    #[cfg(feature = "python_api")]
+    pub fn get_subgraph_pdf(&self, subgraph_edges: &[usize]) -> Vec<f64> {
+        let num_edges = self.tropical_graph.topology.len();
+        let subgraph = TropicalSubGraphId::from_edge_list(subgraph_edges, num_edges);
+        let j = self.table[subgraph.id].j_function;
+
+        subgraph_edges
+            .iter()
+            .map(|edge| {
+                let subgraph_without_edge = subgraph.pop_edge(*edge);
+                self.table[subgraph_without_edge.id].j_function
+                    / j
+                    / self.table[subgraph_without_edge.id].generalized_dod
+            })
+            .collect()
+    }
+
     pub fn get_num_variables(&self) -> usize {
         let num_edges = self.tropical_graph.topology.len();
 
