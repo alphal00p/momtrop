@@ -285,6 +285,11 @@ fn permatuhedral_sampling<T: MomTropFloat, L: Logger>(
         if graph.is_empty() {
             break;
         }
+        let xi = rng.get_random_number(Some("sample xi"));
+        kappa *= &xi.powf(
+            &xi.from_f64(tropical_subgraph_table.table[graph.get_id()].generalized_dod)
+                .inv(),
+        );
     }
 
     let xi_trop = u_trop.ref_mul(&v_trop);
