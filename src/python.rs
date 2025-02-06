@@ -167,8 +167,8 @@ impl PythonTropicalSampleResult {
     }
 }
 
-#[pyclass(name = "PythonEdgeData")]
 #[derive(Clone)]
+#[pyclass(name = "EdgeData")]
 pub struct PythonEdgeData {
     data: Vec<(Option<f64>, Vector<f64, 3>)>,
 }
