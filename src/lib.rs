@@ -18,6 +18,9 @@ mod preprocessing;
 mod sampling;
 pub mod vector;
 
+#[cfg(feature = "python_api")]
+pub mod python;
+
 /// Maximum number of edges supported by momtrop.
 pub const MAX_EDGES: usize = 64;
 /// Maximum number of vertices supported by momtrop.
@@ -37,6 +40,7 @@ pub struct TropicalSamplingSettings<'a, L: Logger = ()> {
     /// Enabling `return_metadata` provides access to some of the intermediate results. This is useful for
     /// exploring new applications.
     pub return_metadata: bool,
+    /// Optional logger for logging messages during sampling.
     pub logger: Option<&'a L>,
 }
 
@@ -65,12 +69,14 @@ pub fn assert_approx_eq<T: MomTropFloat>(res: &T, target: &T, tolerance: &T) {
 /// Main graph struct from which a sampler can be build. This graph should be stripped of
 /// tree-like and external edges.
 /// Vertices which would have external edges attached to them must be added to the `externals` field.
+#[derive(Clone)]
 pub struct Graph {
     pub edges: Vec<Edge>,
     pub externals: Vec<u8>,
 }
 
 /// Edge struct from which a graph can be specified.
+#[derive(Clone, Copy)]
 pub struct Edge {
     pub vertices: (u8, u8),
     pub is_massive: bool,
