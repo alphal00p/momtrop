@@ -102,6 +102,7 @@ impl PythonSampler {
         Ok(python_result)
     }
 
+    /// provides the probability of each edge in the same order as they are supplied
     pub fn get_subgraph_pdf(&self, subgraph: Vec<usize>) -> Vec<f64> {
         self.sampler.table.get_subgraph_pdf(&subgraph)
     }
