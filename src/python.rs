@@ -106,6 +106,14 @@ impl PythonSampler {
     pub fn get_subgraph_pdf(&self, subgraph: Vec<usize>) -> Vec<f64> {
         self.sampler.table.get_subgraph_pdf(&subgraph)
     }
+
+    pub fn get_sector_prob(&self, sector: Vec<usize>) -> f64 {
+        self.sampler.table.get_sector_prob(&sector)
+    }
+
+    pub fn get_itr(&self) -> f64 {
+        self.sampler.table.table.last().unwrap().j_function
+    }
 }
 
 #[pyclass(name = "Settings")]

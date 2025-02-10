@@ -505,6 +505,24 @@ impl TropicalSubgraphTable {
         res
     }
 
+    #[cfg(feature = "python_api")]
+    pub fn get_sector_prob(&self, sector: &[usize]) -> f64 {
+        let mut subgraph = self.tropical_graph.get_full_subgraph_id();
+        let mut res = 1.0;
+        let mut edge_iter = sector.iter();
+
+        while !subgraph.is_empty() {
+            let subgraph_without_edge = subgraph.pop_edge(*edge_iter.next().unwrap());
+            res *= self.table[subgraph_without_edge.id].j_function
+                / self.table[subgraph_without_edge.id].generalized_dod
+                / self.table[subgraph.id].j_function;
+
+            subgraph = subgraph_without_edge
+        }
+
+        res
+    }
+
     pub fn get_num_variables(&self) -> usize {
         let num_edges = self.tropical_graph.topology.len();
 
