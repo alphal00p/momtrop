@@ -8,6 +8,11 @@ use statrs::function::gamma::gamma;
 
 use crate::{float::MomTropFloat, Graph, MAX_EDGES};
 
+pub enum Subgraph<'a> {
+    Id(TropicalSubGraphId),
+    Edges(&'a [usize]),
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TropicalGraph {
     pub dod: f64,
@@ -486,20 +491,24 @@ impl TropicalSubgraphTable {
     /// Get the probability of selecting and edge for a given subgraph. The result is padded with zeroes for
     /// edges not in the subgraph
     #[cfg(feature = "python_api")]
-    pub fn get_subgraph_pdf(&self, subgraph_edges: &[usize]) -> Vec<f64> {
+    pub fn get_subgraph_pdf(&self, subgraph: Subgraph) -> Vec<f64> {
         let num_edges = self.tropical_graph.topology.len();
-        let subgraph = TropicalSubGraphId::from_edge_list(subgraph_edges, num_edges);
+        let subgraph = match subgraph {
+            Subgraph::Id(id) => id,
+            Subgraph::Edges(edges) => TropicalSubGraphId::from_edge_list(edges, num_edges),
+        };
+
         let j = self.table[subgraph.id].j_function;
 
         let mut res = vec![0.0; num_edges];
 
-        for edge in subgraph_edges {
-            let subgraph_without_edge = subgraph.pop_edge(*edge);
+        for edge in subgraph.contains_edges() {
+            let subgraph_without_edge = subgraph.pop_edge(edge);
             let probability = self.table[subgraph_without_edge.id].j_function
                 / j
                 / self.table[subgraph_without_edge.id].generalized_dod;
 
-            res[*edge] = probability;
+            res[edge] = probability;
         }
 
         res

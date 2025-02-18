@@ -7,7 +7,8 @@ use pyo3::{
 };
 
 use crate::{
-    vector::Vector, Edge, Graph, SampleGenerator, TropicalSampleResult, TropicalSamplingSettings,
+    preprocessing::Subgraph, vector::Vector, Edge, Graph, SampleGenerator, TropicalSampleResult,
+    TropicalSamplingSettings,
 };
 
 #[pyclass(name = "Edge")]
@@ -102,9 +103,64 @@ impl PythonSampler {
         Ok(python_result)
     }
 
+    /// just for easy testing, should not be in final version
+    pub fn predict_discrete_probs(&self, indices: Vec<Vec<usize>>) -> Vec<Vec<f64>> {
+        indices
+            .into_iter()
+            .map(|edges_removed| {
+                let mut subgraph = self.sampler.table.tropical_graph.get_full_subgraph_id();
+
+                for edge in edges_removed {
+                    subgraph = subgraph.pop_edge(edge);
+                }
+
+                self.sampler.table.get_subgraph_pdf(Subgraph::Id(subgraph))
+            })
+            .collect()
+    }
+
+    /// just for easy testing, should not be in final version
+    pub fn call(
+        &self,
+        indices: Vec<Vec<usize>>,
+        x: Vec<Vec<f64>>,
+        edge_data: PythonEdgeData,
+        settings: PythonSettings,
+    ) -> Vec<f64> {
+        indices
+            .into_iter()
+            .zip(x)
+            .map(|(mut edges_removed, x_point)| {
+                let mut graph = self.sampler.table.tropical_graph.get_full_subgraph_id();
+                for edge in &edges_removed {
+                    graph = graph.pop_edge(*edge);
+                }
+                let final_edge = graph.contains_edges().next().unwrap();
+                edges_removed.push(final_edge);
+
+                let raw_res = self
+                    .sampler
+                    .generate_sample_from_x_space_point(
+                        &x_point,
+                        edge_data.data.clone(),
+                        &settings.settings,
+                        Some(&edges_removed),
+                    )
+                    .unwrap()
+                    .jacobian;
+
+                let sector_prob = self.sampler.table.get_sector_prob(&edges_removed);
+
+                raw_res * sector_prob
+            })
+            .collect()
+    }
+
     /// provides the probability of each edge in the same order as they are supplied
     pub fn get_subgraph_pdf(&self, subgraph: Vec<usize>) -> Vec<f64> {
-        self.sampler.table.get_subgraph_pdf(&subgraph)
+        self.sampler
+            .table
+            .get_subgraph_pdf(Subgraph::Edges(&subgraph))
     }
 
     pub fn get_sector_prob(&self, sector: Vec<usize>) -> f64 {
