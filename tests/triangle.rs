@@ -83,8 +83,10 @@ fn integrate_massless_triangle() {
         max_pol_ratio = max_pol_ratio.max(polynomial_ratio);
         min_pol_ratio = min_pol_ratio.min(polynomial_ratio);
 
+        let two_to_the_e = (1 << 3) as f64;
+
         let pi_factor = (p10.from_isize(2) * p10.PI()).powf(p10.from_isize(3));
-        let prefactor = energy_prefactor * sample.jacobian / pi_factor;
+        let prefactor = energy_prefactor * sample.jacobian / pi_factor / two_to_the_e;
 
         let term1 = ((energy_0 + energy_1 + p10) * (energy_2 + energy_0 + p10 + p20)).inv();
         let term2 = ((energy_2 + energy_0 - p10 - p20) * (energy_1 + energy_2 - p20)).inv();

@@ -439,7 +439,6 @@ impl TropicalSubgraphTable {
 
         let gamma_ratio = gamma_omega / denom;
         let pi_factor = f64::consts::PI.powf((dimension * tropical_graph.num_loops) as f64 / 2.);
-        let two_to_the_e = (1 << tropical_graph.topology.len()) as f64;
 
         let table = option_subgraph_table
             .into_iter()
@@ -448,7 +447,7 @@ impl TropicalSubgraphTable {
 
         let i_tr = table.last().unwrap().j_function;
 
-        let cached_factor = i_tr * gamma_ratio * pi_factor / two_to_the_e;
+        let cached_factor = i_tr * gamma_ratio * pi_factor;
 
         Ok(TropicalSubgraphTable {
             table,
