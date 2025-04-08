@@ -28,7 +28,7 @@ impl<'a, T> MimicRng<'a, T> {
     }
 }
 
-impl<'a, T: MomTropFloat> MimicRng<'a, T> {
+impl<T: MomTropFloat> MimicRng<'_, T> {
     pub fn zero(&self) -> T {
         self.cache[0].zero()
     }
