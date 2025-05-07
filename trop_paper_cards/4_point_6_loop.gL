@@ -1,0 +1,21 @@
+#warning, it costs a lot of ram to generate this example! At least 64GB is recommended.
+
+import_model scalars-full 
+import_graphs trop_paper_cards/diagrams/4_point_6_loop.dot
+set inline_asm True
+set cpe_rounds_cff None
+set target_omega 3.0
+output trop_paper_outputs/4_point_6_loop
+set externals.data.momenta [[2.,-5.2,2.1,0.0],[1.2,2.2,1.,0.4],[1.6,-0.1,12.5,-2.4]] 
+launch trop_paper_outputs/4_point_6_loop
+
+set continuous_dim_learning_rate 0.0 
+set integrated_phase 'real' 
+set sampling {'type':'discrete_graph_sampling','subtype':'tropical',matrix_stability_test:'1.0'} 
+set e_cm 3.
+set rotation_axis [] 
+set n_start 10_000
+set n_max 1_000_000_000
+integrate 4_point_6_loop -c 6 -r -t (8.4044862640909e-19,0.0)
+
+

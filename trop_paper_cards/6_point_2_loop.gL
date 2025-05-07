@@ -1,0 +1,17 @@
+import_model scalars-full 
+import_graphs trop_paper_cards/diagrams/6_point_2_loop.dot
+!rm -rf trop_paper_outputs/6_point_2_loop
+output trop_paper_outputs/6_point_2_loop
+launch trop_paper_outputs/6_point_2_loop
+set continuous_dim_learning_rate 0.0 
+set integrated_phase 'real' 
+set sampling {'type':'discrete_graph_sampling','subtype':'tropical'} 
+#set sampling {'type':'default'} 
+set e_cm 0.2
+set rotation_axis [] 
+set externals.data.momenta [[0.2,0.3,0.5,0.6],[-0.1,0.7,0.2,0.1],[0.1,0.5,-0.3,-0.4],[-0.3,0.4,0.5,0.2],[-0.2,0.3,0.2,-0.5]] 
+set n_start 10_000_00
+set n_max 1_000_000_000
+integrate 6_point_2_loop -c 6 -r
+
+
