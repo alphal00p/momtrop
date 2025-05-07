@@ -8,7 +8,7 @@ use itertools::Itertools;
 use matrix::{DecompositionResult, SquareMatrix};
 use preprocessing::{TropicalGraph, TropicalSubgraphTable};
 use rand::Rng;
-use sampling::{sample, SamplingError};
+use sampling::{SamplingError, sample};
 use serde::{Deserialize, Serialize};
 use vector::Vector;
 
@@ -185,7 +185,7 @@ impl<const D: usize> SampleGenerator<D> {
         let const_builder = edge_data[0].1.zero();
 
         let num_vars = self.get_dimension();
-        let x_space_point = repeat_with(|| const_builder.from_f64(rng.gen::<f64>()))
+        let x_space_point = repeat_with(|| const_builder.from_f64(rng.r#gen::<f64>()))
             .take(num_vars)
             .collect_vec();
 
