@@ -2,7 +2,6 @@ use core::f64;
 
 use ahash::HashSet;
 use itertools::Itertools;
-use num::Zero;
 use serde::{Deserialize, Serialize};
 use statrs::function::gamma::gamma;
 
@@ -498,7 +497,7 @@ impl TropicalSubgraphTable {
         self.table
             .iter()
             .map(|entry| entry.generalized_dod)
-            .filter(|x| !x.is_zero())
+            .filter(|&x| x > 0.0)
             .reduce(f64::min)
             .unwrap()
     }
