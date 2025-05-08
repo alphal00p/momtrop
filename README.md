@@ -100,3 +100,14 @@ let sample = sampler
 If you want to run ```momtrop``` with floating point types other than f64, you must implement the ```MomtropFloat``` trait for your float of choice. 
 For a full overview of the required methods, view the docs. If you want to implement ```MomtropFloat``` for a type that you do not own, you must 
 wrap it in a new struct. 
+
+## Reproducing the results from the paper 
+
+The results can be reproduced using [```gammaloop```](https://github.com/alphal00p/gammaloop). The configuration files for each example 
+are in the folder ```trop_paper_cards```. 
+
+```
+pip install gammaloop==0.3.3
+gammaloop --build_dependencies
+gammaloop trop_paper_cards/2_point_3_loop.gL
+```
