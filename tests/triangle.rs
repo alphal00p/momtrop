@@ -1,4 +1,4 @@
-use momtrop::{float::MomTropFloat, vector::Vector, Edge, Graph, TropicalSamplingSettings};
+use momtrop::{Edge, Graph, TropicalSamplingSettings, float::MomTropFloat, vector::Vector};
 use rand::SeedableRng;
 
 /// integrate a massless triangle with LTD and tropicalsampling
