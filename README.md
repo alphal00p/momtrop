@@ -90,11 +90,18 @@ let sample = sampler
                 edge_data.clone(),
                 &settings,
                 &mut rng,
-                #[cfg(feature = "log")]
-                &logger,
             )
             .unwrap();
-``` 
+```
+
+Alternatively, you might want to provide the uniform random numbers in the hypercube yourself: 
+
+```rust
+let num_vars = sampler.get_dimension();
+// Or use any other method to generate these numbers
+let x_space_point = repeat_with(|| rng.r#gen::<f64>()).take(num_vars).collect::<Vec<_>>();
+let sample = sampler.generate_sample_from_x_space_point(x_space_point, edge_data, settings);
+```
 ## Arbitrary Precision
 
 If you want to run ```momtrop``` with floating point types other than f64, you must implement the ```MomtropFloat``` trait for your float of choice. 
