@@ -82,6 +82,7 @@ fn integrate_massless_triangle() {
         let polynomial_ratio = (sample.u_trop / sample.u).powf(3. / 2.)
             * (sample.v_trop / sample.v).powf(sampler.get_dod());
 
+        // numerical test of the theoretical bounds on the weight factor
         max_pol_ratio = max_pol_ratio.max(polynomial_ratio);
         min_pol_ratio = min_pol_ratio.min(polynomial_ratio);
 
