@@ -1,12 +1,12 @@
 # Momtrop
 
-`momtrop` is a Rust library implementing the tropical Feynman sampling algorithm for loop integrals in momentum space. It is designed for maximum flexibility: the user retains full control over the evaluation of the integrand, and the sampling process is fully generic over floating-point types.
+`momtrop` is a Rust library implementing the tropical Feynman sampling algorithm for loop integrals in momentum space (https://arxiv.org/abs/2504.09613). It is designed for maximum flexibility: the user retains full control over the evaluation of the integrand, and the sampling process is fully generic over floating-point types.
 
 ---
 
-## Defining a Graph
+## Defining a Graphν
 
-To begin integrating with `momtrop`, you first need to define a graph. Graphs in `momtrop` are specified as a list of undirected edges. Each edge defines the two vertices it connects, a boolean indicating whether it has mass, and an `f64` value representing its weight $\nu_e$.
+To begin integrating with `momtrop`, you first need to define a graph. Graphs in `momtrop` are specified as a list of undirected edges. Each edge defines the two vertices it connects, a boolean indicating whether it has mass, and an `f64` value representing its weight ν_e.
 
 You must also provide a list of vertices with incoming external momenta. The following example defines a triangle graph:
 
@@ -45,7 +45,7 @@ let graph = Graph {
 
 ## The SampleGenerator
 
-Sampling is performed using the `SampleGenerator<D>` struct, where `D` is the dimension. A `SampleGenerator` can be constructed from a `Graph` by supplying a signature matrix. The following code creates a `SampleGenerator` for our triangle graph in $D = 3$ dimensions:
+Sampling is performed using the `SampleGenerator<D>` struct, where `D` is the dimension. A `SampleGenerator` can be constructed from a `Graph` by supplying a signature matrix. The following code creates a `SampleGenerator` for our triangle graph in D = 3 dimensions:
 
 ```rust
 let loop_signature = vec![vec![1]; 3];
@@ -58,7 +58,7 @@ let sampler = graph.build_sampler::<3>(loop_signature).unwrap();
 
 To generate a sample point, you must provide the kinematic data for each edge using the `Vector<T, D>` type, where `T` is a floating-point type.
 
-This data is passed as a `Vec<(Option<T>, Vector<T, D>)>`. Each entry contains the optional mass $m_e$ of the edge (use `None` for massless edges), and the shift vector $p_e$.
+This data is passed as a `Vec<(Option<T>, Vector<T, D>)>`. Each entry contains the optional mass m_e of the edge (use `None` for massless edges), and the shift vector p_e.
 
 Example for massless edges:
 
