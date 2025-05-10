@@ -1,4 +1,4 @@
-//! `momtrop` is a flexible Rust library for tropical Feynman sampling of loop integrals in momentum space.
+//! `momtrop` is a flexible Rust library for tropical Feynman sampling of loop integrals in momentum space (https://arxiv.org/abs/2504.09613).
 //! It allows users to define graphs with arbitrary edge weights, dimensions, and external kinematics,
 //! and supports custom floating-point types via the `MomtropFloat` trait.
 //!
