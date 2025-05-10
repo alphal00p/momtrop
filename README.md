@@ -4,7 +4,7 @@
 
 ---
 
-## Defining a Graphν
+## Defining a Graph
 
 To begin integrating with `momtrop`, you first need to define a graph. Graphs in `momtrop` are specified as a list of undirected edges. Each edge defines the two vertices it connects, a boolean indicating whether it has mass, and an `f64` value representing its weight ν_e.
 
