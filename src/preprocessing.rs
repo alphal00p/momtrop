@@ -5,7 +5,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use statrs::function::gamma::gamma;
 
-use crate::{float::MomTropFloat, Graph, MAX_EDGES};
+use crate::{Graph, MAX_EDGES, float::MomTropFloat};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TropicalGraph {
@@ -379,6 +379,10 @@ impl TropicalSubgraphTable {
         tropical_graph: &TropicalGraph,
         dimension: usize,
     ) -> Result<Self, String> {
+        if tropical_graph.dod < 0.0 {
+            return Err(format!("Graph has negative DoD: {}", tropical_graph.dod));
+        }
+
         let num_edges = tropical_graph.topology.len();
         let powerset_size = 2usize.pow(num_edges as u32);
 
@@ -478,7 +482,10 @@ impl TropicalSubgraphTable {
             }
         }
 
-        panic!("Sampling could not sample edge, with uniform_random_number: {:?}, cumulative sum evaluated to: {:?}", uniform, cum_sum);
+        panic!(
+            "Sampling could not sample edge, with uniform_random_number: {:?}, cumulative sum evaluated to: {:?}",
+            uniform, cum_sum
+        );
     }
 
     pub fn get_num_variables(&self) -> usize {
@@ -507,7 +514,7 @@ impl TropicalSubgraphTable {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{assert_approx_eq, Edge};
+    use crate::{Edge, assert_approx_eq};
 
     const TOLERANCE: f64 = 1e-14;
     // panics with useful error message
