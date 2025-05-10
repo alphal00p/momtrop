@@ -38,7 +38,7 @@ fn integrate_massless_triangle() {
     let p1 = Vector::from_array([3.0, 4.0, 5.0]);
     let p2 = Vector::from_array([6.0, 7.0, 8.0]);
 
-    let mut rng = rand::rngs::StdRng::seed_from_u64(69);
+    let mut rng = rand::rngs::StdRng::seed_from_u64(42);
 
     let mut sum = 0.0;
 

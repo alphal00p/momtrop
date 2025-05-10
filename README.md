@@ -86,7 +86,7 @@ let settings = TropicalSamplingSettings {
 ```rust
 use rand::SeedableRng;
 
-let mut rng = rand::rngs::StdRng::seed_from_u64(69);
+let mut rng = rand::rngs::StdRng::seed_from_u64(42);
 
 let sample = sampler
     .generate_sample_from_rng(
