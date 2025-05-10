@@ -1,6 +1,6 @@
 [package]
 name = "momtrop"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 license = "MIT"
 keywords = ["monte-carlo", "high-energy-physics"]
