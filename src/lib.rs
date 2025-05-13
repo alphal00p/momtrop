@@ -6,6 +6,7 @@
 
 use std::iter::repeat_with;
 
+use bincode::{Decode, Encode};
 #[cfg(feature = "log")]
 use log::Logger;
 
@@ -187,7 +188,7 @@ fn approx_eq<T: MomTropFloat>(res: &T, target: &T, tolerance: &T) -> bool {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Decode, Encode)]
 /// Sampler struct from which sample points can be generated.
 pub struct SampleGenerator<const D: usize> {
     loop_signature: Vec<Vec<isize>>,

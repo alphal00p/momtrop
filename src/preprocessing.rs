@@ -1,13 +1,14 @@
 use core::f64;
 
 use ahash::HashSet;
+use bincode::{Decode, Encode};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use statrs::function::gamma::gamma;
 
 use crate::{Graph, MAX_EDGES, float::MomTropFloat};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub struct TropicalGraph {
     pub dod: f64,
     pub topology: Vec<TropicalEdge>,
@@ -241,7 +242,7 @@ impl TropicalGraph {
     }
 }
 
-#[derive(Clone, Copy, Serialize, Deserialize, Debug)]
+#[derive(Clone, Copy, Serialize, Deserialize, Debug, Encode, Decode)]
 pub struct TropicalEdge {
     edge_id: u8,
     left: u8,
@@ -357,7 +358,7 @@ impl OptionTropicalSubgraphTableEntry {
 }
 
 /// Data that needs to be stored for each subgraph
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Encode, Decode)]
 pub struct TropicalSubgraphTableEntry {
     pub loop_number: u8,
     pub mass_momentum_spanning: bool,
@@ -366,7 +367,7 @@ pub struct TropicalSubgraphTableEntry {
 }
 
 /// The list of data for all subgraphs, indexed using the TropicalSubGraphId
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub struct TropicalSubgraphTable {
     pub table: Vec<TropicalSubgraphTableEntry>,
     pub dimension: usize,
