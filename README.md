@@ -128,3 +128,8 @@ You can reproduce the results from the associated paper using [`gammaloop`](http
 pip install gammaloop==0.3.3
 gammaloop --build_dependencies
 gammaloop trop_paper_cards/2_point_3_loop.gL
+```
+
+If you encounter `error: externally-managed-environment`, please install `gammaloop` in a [virtual environment](https://docs.python.org/3/library/venv.html).
+
+
