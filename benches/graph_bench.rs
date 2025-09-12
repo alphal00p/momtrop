@@ -1,5 +1,5 @@
-use criterion::{criterion_group, criterion_main, Criterion};
-use momtrop::{vector::Vector, Edge, Graph, TropicalSamplingSettings};
+use criterion::{Criterion, criterion_group, criterion_main};
+use momtrop::{Edge, Graph, TropicalSamplingSettings, vector::Vector};
 use rand::{Rng, SeedableRng};
 
 fn criterion_benchmark(c: &mut Criterion) {
@@ -30,9 +30,6 @@ fn criterion_benchmark(c: &mut Criterion) {
         externals,
     };
 
-    #[cfg(feature = "log")]
-    let logger = momtrop::log::DummyLogger {};
-
     let loop_signature = vec![vec![1]; 3];
     let sampler = graph.build_sampler(loop_signature).unwrap();
     let mut rng = rand::rngs::StdRng::seed_from_u64(69);
@@ -50,13 +47,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     group.bench_function("triangle", |b| {
         b.iter(|| {
-            sampler.generate_sample_from_x_space_point(
-                &x_space_point,
-                edge_data.clone(),
-                &settings,
-                #[cfg(feature = "log")]
-                &logger,
-            )
+            sampler.generate_sample_from_x_space_point(&x_space_point, edge_data.clone(), &settings)
         })
     });
 }

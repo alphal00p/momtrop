@@ -78,9 +78,6 @@ fn integrate_massless_triangle() {
         ..Default::default()
     };
 
-    #[cfg(feature = "log")]
-    let logger = momtrop::log::DummyLogger {};
-
     // This is the number of random variable that we need
     let dimension = sampler.get_dimension();
 
@@ -93,13 +90,7 @@ fn integrate_massless_triangle() {
 
         // generate a sample point
         let sample = sampler
-            .generate_sample_from_x_space_point(
-                &random_variables,
-                edge_data.clone(),
-                &settings,
-                #[cfg(feature = "log")]
-                &logger,
-            )
+            .generate_sample_from_rng(edge_data.clone(), &settings, &mut rng)
             .unwrap();
 
         // Implementation of the integrand

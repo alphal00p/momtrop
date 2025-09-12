@@ -1,6 +1,6 @@
 [package]
 name = "momtrop"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2024"
 license = "MIT"
 keywords = ["monte-carlo", "high-energy-physics"]
@@ -9,9 +9,6 @@ repository = "https://github.com/alphal00p/momtrop"
 description = "Simple rust crate for tropical sampling in momentum space"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[features]
-log = []
 
 [[bench]]
 name = "gamma_bench"

@@ -7,8 +7,6 @@
 use std::iter::repeat_with;
 
 use bincode::{Decode, Encode};
-#[cfg(feature = "log")]
-use log::Logger;
 
 use float::MomTropFloat;
 use itertools::Itertools;
@@ -21,8 +19,6 @@ use vector::Vector;
 
 pub mod float;
 pub mod gamma;
-#[cfg(feature = "log")]
-pub mod log;
 pub mod matrix;
 mod mimic_rng;
 mod preprocessing;
@@ -248,15 +244,11 @@ impl<const D: usize> SampleGenerator<D> {
     /// assert!(sample.is_ok());
     ///
     /// ```
-    pub fn generate_sample_from_x_space_point<
-        T: MomTropFloat,
-        #[cfg(feature = "log")] L: Logger,
-    >(
+    pub fn generate_sample_from_x_space_point<T: MomTropFloat>(
         &self,
         x_space_point: &[T],
         edge_data: Vec<(Option<T>, vector::Vector<T, D>)>,
         settings: &TropicalSamplingSettings,
-        #[cfg(feature = "log")] logger: &L,
     ) -> Result<TropicalSampleResult<T, D>, SamplingError> {
         sample(
             &self.table,
@@ -264,8 +256,6 @@ impl<const D: usize> SampleGenerator<D> {
             &self.loop_signature,
             &edge_data,
             settings,
-            #[cfg(feature = "log")]
-            logger,
         )
     }
 
@@ -319,12 +309,11 @@ impl<const D: usize> SampleGenerator<D> {
     /// assert!(sample.is_ok());
     ///
     /// ```
-    pub fn generate_sample_from_rng<T: MomTropFloat, R: Rng, #[cfg(feature = "log")] L: Logger>(
+    pub fn generate_sample_from_rng<T: MomTropFloat, R: Rng>(
         &self,
         edge_data: Vec<(Option<T>, vector::Vector<T, D>)>,
         settings: &TropicalSamplingSettings,
         rng: &mut R,
-        #[cfg(feature = "log")] logger: &L,
     ) -> Result<TropicalSampleResult<T, D>, SamplingError> {
         let const_builder = edge_data[0].1.zero();
 
@@ -333,13 +322,7 @@ impl<const D: usize> SampleGenerator<D> {
             .take(num_vars)
             .collect_vec();
 
-        self.generate_sample_from_x_space_point(
-            &x_space_point,
-            edge_data,
-            settings,
-            #[cfg(feature = "log")]
-            logger,
-        )
+        self.generate_sample_from_x_space_point(&x_space_point, edge_data, settings)
     }
 
     /// Dimensionality of the unit hypercube, should match the length of `x_space_point`.
