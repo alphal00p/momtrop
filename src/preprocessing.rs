@@ -1103,11 +1103,10 @@ mod tests {
             num_loops: 1,
         };
 
-        let subgraph_table =
-            TropicalSubgraphTable::generate_from_tropical(triangle_graph, 3, Some(0.48))
-                .expect("Failed to generate subgraph table");
+        let subgraph_table = TropicalSubgraphTable::generate_from_tropical(triangle_graph, 3, None)
+            .expect("Failed to generate subgraph table");
 
-        panic!("{:?}", subgraph_table.tropical_graph);
+        //panic!("{:?}", subgraph_table.tropical_graph);
 
         assert_eq!(subgraph_table.table.len(), 8);
 
@@ -1214,10 +1213,10 @@ mod tests {
             num_loops: 3,
         };
 
-        let subgraph_table = TropicalSubgraphTable::generate_from_tropical(gr, 3, Some(1.0))
+        let subgraph_table = TropicalSubgraphTable::generate_from_tropical(gr, 3, None)
             .expect("Failed to generate subgraph table");
 
-        panic!("{:?}", subgraph_table.tropical_graph);
+        //panic!("{:?}", subgraph_table.tropical_graph);
 
         let i_tr = subgraph_table.table.last().unwrap().j_function;
 
