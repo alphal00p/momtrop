@@ -16,6 +16,11 @@ use clarabel::{
     },
 };
 
+pub enum Subgraph<'a> {
+    Id(TropicalSubGraphId),
+    Edges(&'a [usize]),
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub struct TropicalGraph {
     pub dod: f64,
@@ -26,7 +31,7 @@ pub struct TropicalGraph {
 }
 
 impl TropicalGraph {
-    pub fn from_graph(graph: Graph, dimension: usize) -> Self {
+    pub fn from_graph(graph: Graph, dimension: usize) -> Result<Self, String> {
         assert!(
             graph.edges.len() <= MAX_EDGES,
             "Graph has more than 64 edges"
@@ -61,11 +66,15 @@ impl TropicalGraph {
 
         let dod = weight_sum - (loop_number as f64 * dimension as f64) / 2.;
 
+        if dod <= 0.0 {
+            return Err(format!("Divergent graph, dod: {dod}"));
+        }
+
         res.dod = dod;
         res.num_massive_edges = num_massive_edges;
         res.num_loops = loop_number;
 
-        res
+        Ok(res)
     }
 
     #[inline]
@@ -636,6 +645,50 @@ impl TropicalSubgraphTable {
         );
     }
 
+    /// Get the probability of selecting and edge for a given subgraph. The result is padded with zeroes for
+    /// edges not in the subgraph
+    #[cfg(feature = "python_api")]
+    pub fn get_subgraph_pdf(&self, subgraph: Subgraph) -> Vec<f64> {
+        let num_edges = self.tropical_graph.topology.len();
+        let subgraph = match subgraph {
+            Subgraph::Id(id) => id,
+            Subgraph::Edges(edges) => TropicalSubGraphId::from_edge_list(edges, num_edges),
+        };
+
+        let j = self.table[subgraph.id].j_function;
+
+        let mut res = vec![0.0; num_edges];
+
+        for edge in subgraph.contains_edges() {
+            let subgraph_without_edge = subgraph.pop_edge(edge);
+            let probability = self.table[subgraph_without_edge.id].j_function
+                / j
+                / self.table[subgraph_without_edge.id].generalized_dod;
+
+            res[edge] = probability;
+        }
+
+        res
+    }
+
+    #[cfg(feature = "python_api")]
+    pub fn get_sector_prob(&self, sector: &[usize]) -> f64 {
+        let mut subgraph = self.tropical_graph.get_full_subgraph_id();
+        let mut res = 1.0;
+        let mut edge_iter = sector.iter();
+
+        while !subgraph.is_empty() {
+            let subgraph_without_edge = subgraph.pop_edge(*edge_iter.next().unwrap());
+            res *= self.table[subgraph_without_edge.id].j_function
+                / self.table[subgraph_without_edge.id].generalized_dod
+                / self.table[subgraph.id].j_function;
+
+            subgraph = subgraph_without_edge
+        }
+
+        res
+    }
+
     pub fn get_num_variables(&self) -> usize {
         let num_edges = self.tropical_graph.topology.len();
 
@@ -758,17 +811,17 @@ mod tests {
                 Edge {
                     vertices: (0, 1),
                     is_massive: false,
-                    weight: 1.0,
+                    weight: 1.5,
                 },
                 Edge {
                     vertices: (0, 1),
                     is_massive: false,
-                    weight: 1.0,
+                    weight: 1.5,
                 },
                 Edge {
                     vertices: (0, 1),
                     is_massive: false,
-                    weight: 1.0,
+                    weight: 1.5,
                 },
             ],
             externals: vec![0, 1],
@@ -781,17 +834,17 @@ mod tests {
                 Edge {
                     vertices: (0, 1),
                     is_massive: true,
-                    weight: 1.0,
+                    weight: 1.5,
                 },
                 Edge {
                     vertices: (0, 1),
                     is_massive: true,
-                    weight: 1.0,
+                    weight: 1.5,
                 },
                 Edge {
                     vertices: (0, 1),
                     is_massive: true,
-                    weight: 1.0,
+                    weight: 1.5,
                 },
             ],
             externals: vec![0, 1],
@@ -834,10 +887,10 @@ mod tests {
     #[test]
     fn test_from_graph() {
         let sunrise_graph = sunrise_graph();
-        let tropical_sunrise = TropicalGraph::from_graph(sunrise_graph, 3);
+        let tropical_sunrise = TropicalGraph::from_graph(sunrise_graph, 3).unwrap();
 
         assert_eq!(tropical_sunrise.topology.len(), 3);
-        assert_eq!(tropical_sunrise.dod, 0.0);
+        assert_eq!(tropical_sunrise.dod, 1.5);
         assert_eq!(tropical_sunrise.num_loops, 2);
         assert_eq!(tropical_sunrise.num_massive_edges, 0);
 
@@ -845,14 +898,14 @@ mod tests {
             assert_eq!(edge.left, 0);
             assert_eq!(edge.right, 1);
             assert!(!edge.is_massive);
-            assert_eq!(edge.weight, 1.0);
+            assert_eq!(edge.weight, 1.5);
         }
     }
 
     #[test]
     fn test_get_full_subgraph_id() {
         let sunrise_graph = sunrise_graph();
-        let tropical_sunrise = TropicalGraph::from_graph(sunrise_graph, 3);
+        let tropical_sunrise = TropicalGraph::from_graph(sunrise_graph, 3).unwrap();
         let full_subgraph_id = tropical_sunrise.get_full_subgraph_id();
         assert_eq!(full_subgraph_id.get_id(), 7);
     }
@@ -860,7 +913,7 @@ mod tests {
     #[test]
     fn test_is_mass_momentum_spanning() {
         let sunrise_graph = sunrise_graph();
-        let tropical_sunrise = TropicalGraph::from_graph(sunrise_graph, 3);
+        let tropical_sunrise = TropicalGraph::from_graph(sunrise_graph, 3).unwrap();
 
         assert!(tropical_sunrise.is_mass_momentum_spanning(&[0, 1, 2]));
         assert!(tropical_sunrise.is_mass_momentum_spanning(&[0, 1]));
@@ -871,7 +924,7 @@ mod tests {
         assert!(tropical_sunrise.is_mass_momentum_spanning(&[1]));
 
         let massive_sunrise_graph = massive_sunrise_graph();
-        let massive_sunrise = TropicalGraph::from_graph(massive_sunrise_graph, 3);
+        let massive_sunrise = TropicalGraph::from_graph(massive_sunrise_graph, 3).unwrap();
 
         assert!(massive_sunrise.is_mass_momentum_spanning(&[0, 1, 2]));
         assert!(!massive_sunrise.is_mass_momentum_spanning(&[0, 1]));
@@ -937,7 +990,7 @@ mod tests {
     fn test_get_loop_number_of_connected_component() {
         let graph = double_triangle_graph();
 
-        let tropical_graph = TropicalGraph::from_graph(graph, 3);
+        let tropical_graph = TropicalGraph::from_graph(graph, 3).unwrap();
 
         let subgraph_id = tropical_graph.get_full_subgraph_id();
         let loop_number = tropical_graph.get_loop_number_of_connected_component(&subgraph_id);
@@ -947,7 +1000,7 @@ mod tests {
     #[test]
     fn test_compute_weight_sum() {
         let graph = double_triangle_graph();
-        let tropical_graph = TropicalGraph::from_graph(graph, 3);
+        let tropical_graph = TropicalGraph::from_graph(graph, 3).unwrap();
 
         let weight_sum = tropical_graph.compute_weight_sum(&[0, 1, 2, 3, 4]);
         assert_eq!(weight_sum, 5.0);
@@ -976,7 +1029,7 @@ mod tests {
             externals: vec![],
         };
 
-        let trop_tri = TropicalGraph::from_graph(triangle_with_different_weights, 3);
+        let trop_tri = TropicalGraph::from_graph(triangle_with_different_weights, 3).unwrap();
         let weight_sum = trop_tri.compute_weight_sum(&[0, 1]);
         assert_eq!(weight_sum, 3.0);
 
@@ -1041,7 +1094,7 @@ mod tests {
     #[test]
     fn test_get_neighbours() {
         let double_triangle = double_triangle_graph();
-        let trop = TropicalGraph::from_graph(double_triangle, 3);
+        let trop = TropicalGraph::from_graph(double_triangle, 3).unwrap();
 
         let neighbours = trop.get_neighbouring_edges_in_subgraph(0, &[0, 1, 2, 3, 4]);
         assert_eq!(neighbours.len(), 4);
@@ -1054,7 +1107,7 @@ mod tests {
 
     #[test]
     fn test_are_neighbours() {
-        let trop = TropicalGraph::from_graph(double_triangle_graph(), 3);
+        let trop = TropicalGraph::from_graph(double_triangle_graph(), 3).unwrap();
         assert!(trop.are_neighbours(0, 1));
         assert!(trop.are_neighbours(0, 2));
         assert!(trop.are_neighbours(0, 3));

@@ -25,12 +25,15 @@ mod preprocessing;
 mod sampling;
 pub mod vector;
 
+#[cfg(feature = "python_api")]
+pub mod python;
+
 /// Maximum number of edges supported by momtrop.
 pub const MAX_EDGES: usize = 64;
 /// Maximum number of vertices supported by momtrop.
 pub const MAX_VERTICES: usize = 256;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// Struct containing all runtime settings.
 pub struct TropicalSamplingSettings {
     /// `matrix_stability_test` tests the numerical stability
@@ -70,13 +73,14 @@ pub fn assert_approx_eq<T: MomTropFloat>(res: &T, target: &T, tolerance: &T) {
 /// Main graph struct from which a sampler can be build. This graph should be stripped of
 /// tree-like and external edges.
 /// Vertices which would have external edges attached to them must be added to the `externals` field.
-///
+#[derive(Clone)]
 pub struct Graph {
     pub edges: Vec<Edge>,
     pub externals: Vec<u8>,
 }
 
 /// Edge struct from which a graph can be specified.
+#[derive(Clone, Copy)]
 pub struct Edge {
     pub vertices: (u8, u8),
     pub is_massive: bool,
@@ -166,7 +170,7 @@ impl Graph {
         self,
         loop_signature: Vec<Vec<isize>>,
     ) -> Result<SampleGenerator<D>, String> {
-        let tropical_graph = TropicalGraph::from_graph(self, D);
+        let tropical_graph = TropicalGraph::from_graph(self, D)?;
         let table = TropicalSubgraphTable::generate_from_tropical(tropical_graph, D, None)?;
 
         Ok(SampleGenerator {
@@ -240,7 +244,7 @@ impl<const D: usize> SampleGenerator<D> {
     ///let mut rng: StdRng = SeedableRng::seed_from_u64(42);
     ///
     ///let x_space_point = repeat_with(|| rng.r#gen::<f64>()).take(triangle_sampler.get_dimension()).collect::<Vec<_>>();
-    ///let sample = triangle_sampler.generate_sample_from_x_space_point(&x_space_point, edge_data, &settings);
+    ///let sample = triangle_sampler.generate_sample_from_x_space_point(&x_space_point, edge_data, &settings, None);
     /// assert!(sample.is_ok());
     ///
     /// ```
@@ -249,6 +253,7 @@ impl<const D: usize> SampleGenerator<D> {
         x_space_point: &[T],
         edge_data: Vec<(Option<T>, vector::Vector<T, D>)>,
         settings: &TropicalSamplingSettings,
+        force_sector: Option<&[usize]>,
     ) -> Result<TropicalSampleResult<T, D>, SamplingError> {
         sample(
             &self.table,
@@ -256,6 +261,7 @@ impl<const D: usize> SampleGenerator<D> {
             &self.loop_signature,
             &edge_data,
             settings,
+            force_sector,
         )
     }
 
@@ -322,7 +328,7 @@ impl<const D: usize> SampleGenerator<D> {
             .take(num_vars)
             .collect_vec();
 
-        self.generate_sample_from_x_space_point(&x_space_point, edge_data, settings)
+        self.generate_sample_from_x_space_point(&x_space_point, edge_data, settings, None)
     }
 
     /// Dimensionality of the unit hypercube, should match the length of `x_space_point`.

@@ -1,7 +1,7 @@
 use smallvec::SmallVec;
 use std::ops::{Add, Index, IndexMut, Mul, Sub};
 
-use crate::{float::MomTropFloat, TropicalSamplingSettings};
+use crate::{TropicalSamplingSettings, float::MomTropFloat};
 
 #[derive(Debug, Clone, Default)]
 /// square symmetric matrix for use in the tropical sampling algorithm
@@ -198,11 +198,7 @@ impl<T: MomTropFloat> SquareMatrix<T> {
                 .iter()
                 .enumerate()
                 .fold(self.new_zeros(self.dim), |acc, (i, mat)| {
-                    if i % 2 == 0 {
-                        &acc - mat
-                    } else {
-                        &acc + mat
-                    }
+                    if i % 2 == 0 { &acc - mat } else { &acc + mat }
                 });
 
         let mut inverse_q = n_sum;
@@ -321,7 +317,7 @@ mod tests {
         let mut test_matrix = builder_matrix_f64().new_zeros(2);
         println!("build matrix");
 
-        let settings = TropicalSamplingSettings {
+        let settings: TropicalSamplingSettings = TropicalSamplingSettings {
             print_debug_info: true,
             ..Default::default()
         };
@@ -372,7 +368,7 @@ mod tests {
     #[test]
     fn test_decompose_for_tropical_4x4() {
         let mut wilson_matrix = builder_matrix_f64().new_zeros(4);
-        let settings = TropicalSamplingSettings::default();
+        let settings: TropicalSamplingSettings = TropicalSamplingSettings::default();
 
         wilson_matrix[(0, 0)] = 5.0;
         wilson_matrix[(1, 1)] = 10.0;

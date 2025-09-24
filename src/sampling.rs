@@ -20,20 +20,44 @@ pub enum SamplingError {
     GammaError(GammaError),
 }
 
+#[cfg(feature = "python_api")]
+impl From<SamplingError> for pyo3::PyErr {
+    fn from(value: SamplingError) -> Self {
+        let error_string = match value {
+            SamplingError::MatrixError(error) => match error {
+                MatrixError::Unstable => "Matrix operations deemed unstable",
+                MatrixError::ZeroDet => "Detected zero determinant",
+            },
+            SamplingError::GammaError(_) => "Sampling gamma distribution failed",
+        };
+
+        pyo3::exceptions::PyValueError::new_err(error_string)
+    }
+}
+
 pub fn sample<T: MomTropFloat, const D: usize>(
     tropical_subgraph_table: &TropicalSubgraphTable,
     x_space_point: &[T],
     loop_signature: &[Vec<isize>],
     edge_data: &[(Option<T>, Vector<T, D>)],
     settings: &TropicalSamplingSettings,
+    force_sector: Option<&[usize]>,
 ) -> Result<TropicalSampleResult<T, D>, SamplingError> {
     let num_loops = tropical_subgraph_table.tropical_graph.num_loops;
 
     let mut mimic_rng = MimicRng::new(x_space_point);
     let const_builder = mimic_rng.zero();
 
-    let permatuhedral_sample =
-        permatuhedral_sampling(tropical_subgraph_table, &mut mimic_rng, settings);
+    let permatuhedral_sample = if let Some(sector) = force_sector {
+        sample_feynman_parameters_in_sector(
+            tropical_subgraph_table,
+            sector,
+            &mut mimic_rng,
+            settings,
+        )
+    } else {
+        permatuhedral_sampling(tropical_subgraph_table, &mut mimic_rng, settings)
+    };
 
     let l_matrix = compute_l_matrix(&permatuhedral_sample.x, loop_signature);
     let decomposed_l_matrix = match l_matrix.decompose_for_tropical(settings) {
@@ -132,11 +156,9 @@ struct PermatuhedralSamplingResult<T: MomTropFloat> {
     v_trop: T,
 }
 
-/// This function returns the feynman parameters for a given graph and sample point, it also computes u_trop and v_trop.
-/// A rescaling is performed for numerical stability, with this rescaling u_trop and v_trop always evaluate to 1.
-#[inline]
-fn permatuhedral_sampling<T: MomTropFloat>(
+fn sample_feynman_parameters_in_sector<T: MomTropFloat>(
     tropical_subgraph_table: &TropicalSubgraphTable,
+    sector: &[usize],
     rng: &mut MimicRng<T>,
     settings: &TropicalSamplingSettings,
 ) -> PermatuhedralSamplingResult<T> {
@@ -149,34 +171,22 @@ fn permatuhedral_sampling<T: MomTropFloat>(
         .tropical_graph
         .get_full_subgraph_id();
 
-    while !graph.is_empty() {
-        // this saves a random variable
-        let (edge, graph_without_edge) = if graph.has_one_edge() {
-            let edge = graph
-                .contains_edges()
-                .next()
-                .unwrap_or_else(|| unreachable!());
-            let graph_without_edge = graph.pop_edge(edge);
-            (edge, graph_without_edge)
-        } else {
-            tropical_subgraph_table.sample_edge(rng.get_random_number(Some("sample_edge")), &graph)
-        };
-
-        x_vec[edge] = kappa.clone();
+    for &edge_id in sector.iter() {
+        let graph_without_edge = graph.pop_edge(edge_id);
+        x_vec[edge_id] = kappa.clone();
 
         if tropical_subgraph_table.table[graph.get_id()].mass_momentum_spanning
             && !tropical_subgraph_table.table[graph_without_edge.get_id()].mass_momentum_spanning
         {
-            v_trop = x_vec[edge].clone();
+            v_trop = x_vec[edge_id].clone();
         }
 
         if tropical_subgraph_table.table[graph_without_edge.get_id()].loop_number
             < tropical_subgraph_table.table[graph.get_id()].loop_number
         {
-            u_trop *= &x_vec[edge];
+            u_trop *= &x_vec[edge_id];
         }
 
-        // Terminate early, so we do not waste a random variable in the final step
         graph = graph_without_edge;
         if graph.is_empty() {
             break;
@@ -226,6 +236,38 @@ fn permatuhedral_sampling<T: MomTropFloat>(
         u_trop,
         v_trop,
     }
+}
+
+/// This function returns the feynman parameters for a given graph and sample point, it also computes u_trop and v_trop.
+/// A rescaling is performed for numerical stability, with this rescaling u_trop and v_trop always evaluate to 1.
+#[inline]
+fn permatuhedral_sampling<T: MomTropFloat>(
+    tropical_subgraph_table: &TropicalSubgraphTable,
+    rng: &mut MimicRng<T>,
+    settings: &TropicalSamplingSettings,
+) -> PermatuhedralSamplingResult<T> {
+    let mut graph = tropical_subgraph_table
+        .tropical_graph
+        .get_full_subgraph_id();
+
+    let mut sector = Vec::with_capacity(tropical_subgraph_table.tropical_graph.topology.len());
+    while !graph.is_empty() {
+        let (edge, graph_without_edge) = if graph.has_one_edge() {
+            let edge = graph
+                .contains_edges()
+                .next()
+                .unwrap_or_else(|| unreachable!());
+            let graph_without_edge = graph.pop_edge(edge);
+            (edge, graph_without_edge)
+        } else {
+            tropical_subgraph_table.sample_edge(rng.get_random_number(Some("sample_edge")), &graph)
+        };
+
+        sector.push(edge);
+        graph = graph_without_edge;
+    }
+
+    sample_feynman_parameters_in_sector(tropical_subgraph_table, &sector, rng, settings)
 }
 
 /// Compute the L x L matrix from the feynman parameters and the signature matrix
