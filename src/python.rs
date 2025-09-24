@@ -212,7 +212,7 @@ impl PythonVector {
         }
     }
 
-    fn __repr__(&self) -> PyResult<impl IntoPyObject> {
+    fn __repr__(&'_ self) -> PyResult<impl IntoPyObject<'_>> {
         Ok(format!(
             "x: {}, y: {}, z: {}",
             self.vector[0], self.vector[1], self.vector[2]
