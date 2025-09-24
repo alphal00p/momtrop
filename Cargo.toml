@@ -1,7 +1,12 @@
 [package]
 name = "momtrop"
-version = "0.2.0"
-edition = "2021"
+version = "0.3.0"
+edition = "2024"
+license = "MIT"
+keywords = ["monte-carlo", "high-energy-physics"]
+exclude = ["/trop_paper_cards"]
+repository = "https://github.com/alphal00p/momtrop"
+description = "Simple rust crate for tropical sampling in momentum space"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -33,7 +38,6 @@ version = "0.23"
 [dependencies]
 smallvec = "1.13.2"
 ahash = "0.8.11"
-num = { version = "0.4.1", features = ["serde"] }
 statrs = "0.16.0"
 itertools = "0.12.1"
 rand = "0.8.5"
@@ -41,3 +45,5 @@ criterion = "0.5.1"
 serde = { version = "1.0", features = ["derive"] }
 
 ref-ops = "0.2.5"
+bincode = "2.0.1"
+clarabel = "0.11.1"

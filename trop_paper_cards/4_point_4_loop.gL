@@ -1,0 +1,19 @@
+import_model scalars-full 
+import_graphs trop_paper_cards/diagrams/4_point_4_loop.dot 
+set inline_asm True
+set target_omega 3.0
+!rm -rf trop_paper_outputs/4_point_4_loop
+output trop_paper_outputs/4_point_4_loop
+
+launch trop_paper_outputs/4_point_4_loop
+set externals.data.momenta [[2.,-5.2,2.1,0.0],[1.2,2.2,1.,0.4],[1.6,-0.1,12.5,-2.4]] 
+
+set sampling {'type':'discrete_graph_sampling','subtype':'tropical'} 
+set amplitude_prefactor {'re':0.0,'im':-1.0}
+set e_cm 3.
+set rotation_axis [] 
+set n_start 1_000_000
+set n_max 1_000_000_000
+integrate 4_point_4_loop -c 6 -r -t (2.6919e-14,0.0)
+
+

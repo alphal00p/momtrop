@@ -1,5 +1,5 @@
-use criterion::{criterion_group, criterion_main, Criterion};
-use momtrop::{vector::Vector, Edge, Graph, TropicalSamplingSettings};
+use criterion::{Criterion, criterion_group, criterion_main};
+use momtrop::{Edge, Graph, TropicalSamplingSettings, vector::Vector};
 use rand::{Rng, SeedableRng};
 
 fn criterion_benchmark(c: &mut Criterion) {
@@ -43,7 +43,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     let x_space_point = vec![rng.r#gen(); sampler.get_dimension()];
 
-    let settings = TropicalSamplingSettings::<()>::default();
+    let settings = TropicalSamplingSettings::default();
 
     group.bench_function("triangle", |b| {
         b.iter(|| {

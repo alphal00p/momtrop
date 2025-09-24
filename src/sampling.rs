@@ -1,14 +1,13 @@
-use itertools::{izip, Itertools};
+use itertools::{Itertools, izip};
 use pyo3::exceptions::PyValueError;
 
 use super::TropicalSubgraphTable;
 use crate::gamma::GammaError;
-use crate::log::Logger;
 use crate::matrix::{MatrixError, SquareMatrix};
 use crate::mimic_rng::MimicRng;
 use crate::vector::Vector;
-use crate::{float::MomTropFloat, gamma::inverse_gamma_lr};
 use crate::{Metadata, TropicalSampleResult, TropicalSamplingSettings};
+use crate::{float::MomTropFloat, gamma::inverse_gamma_lr};
 
 fn box_muller<T: MomTropFloat>(x1: &T, x2: &T) -> (T, T) {
     let r = (-x1.from_isize(2) * x1.ln()).sqrt();
@@ -37,12 +36,12 @@ impl From<SamplingError> for pyo3::PyErr {
     }
 }
 
-pub fn sample<T: MomTropFloat, const D: usize, L: Logger>(
+pub fn sample<T: MomTropFloat, const D: usize>(
     tropical_subgraph_table: &TropicalSubgraphTable,
     x_space_point: &[T],
     loop_signature: &[Vec<isize>],
     edge_data: &[(Option<T>, Vector<T, D>)],
-    settings: &TropicalSamplingSettings<L>,
+    settings: &TropicalSamplingSettings,
     force_sector: Option<&[usize]>,
 ) -> Result<TropicalSampleResult<T, D>, SamplingError> {
     let num_loops = tropical_subgraph_table.tropical_graph.num_loops;
@@ -78,11 +77,7 @@ pub fn sample<T: MomTropFloat, const D: usize, L: Logger>(
     .map_err(SamplingError::GammaError)?;
 
     if settings.print_debug_info {
-        if let Some(logger) = &settings.logger {
-            logger.write("momtrop_lambda", &lambda.to_f64());
-        } else {
-            println!("lambda: {:?}", lambda);
-        }
+        println!("lambda: {:?}", lambda);
     }
 
     let (edge_masses, edge_shifts): (Vec<T>, Vec<&Vector<T, D>>) = edge_data
@@ -117,13 +112,8 @@ pub fn sample<T: MomTropFloat, const D: usize, L: Logger>(
     );
 
     if settings.print_debug_info {
-        if let Some(logger) = &settings.logger {
-            logger.write("momtrop_v", &v_polynomial.to_f64());
-            logger.write("momtrop_u", &decomposed_l_matrix.determinant.to_f64())
-        } else {
-            println!("v: {:?}", &v_polynomial);
-            println!("u: {:?}", &decomposed_l_matrix.determinant);
-        }
+        println!("v: {:?}", &v_polynomial);
+        println!("u: {:?}", &decomposed_l_matrix.determinant);
     }
 
     let u_trop = permatuhedral_sample.u_trop;
@@ -167,11 +157,11 @@ struct PermatuhedralSamplingResult<T: MomTropFloat> {
     v_trop: T,
 }
 
-fn sample_feynman_parameters_in_sector<T: MomTropFloat, L: Logger>(
+fn sample_feynman_parameters_in_sector<T: MomTropFloat>(
     tropical_subgraph_table: &TropicalSubgraphTable,
     sector: &[usize],
     rng: &mut MimicRng<T>,
-    settings: &TropicalSamplingSettings<L>,
+    settings: &TropicalSamplingSettings,
 ) -> PermatuhedralSamplingResult<T> {
     let mut kappa = rng.one();
     let mut x_vec = vec![rng.zero(); tropical_subgraph_table.tropical_graph.topology.len()];
@@ -228,31 +218,15 @@ fn sample_feynman_parameters_in_sector<T: MomTropFloat, L: Logger>(
     );
 
     if settings.print_debug_info {
-        if let Some(logger) = &settings.logger {
-            logger.write(
-                "momtrop_feynman_parameter_no_rescaling",
-                &x_vec.iter().map(|x| x.to_f64()).collect_vec(),
-            );
-        } else {
-            println!("feynman parameters before rescaling: {:?}", x_vec);
-        }
+        println!("feynman parameters before rescaling: {:?}", x_vec);
     }
 
     x_vec.iter_mut().for_each(|x| *x *= &scaling);
 
     if settings.print_debug_info {
-        if let Some(logger) = &settings.logger {
-            logger.write(
-                "momtrop_feynman_parameter",
-                &x_vec.iter().map(|x| x.to_f64()).collect_vec(),
-            );
-            logger.write("momtrop_u_trop_no_rescaling", &u_trop.to_f64());
-            logger.write("momtrop_v_trop_no_rescaling", &v_trop.to_f64());
-        } else {
-            println!("sampled feynman parameters: {:?}", &x_vec);
-            println!("u_trop before rescaling: {:?}", &u_trop);
-            println!("v_trop before rescaling: {:?}", &v_trop);
-        }
+        println!("sampled feynman parameters: {:?}", &x_vec);
+        println!("u_trop before rescaling: {:?}", &u_trop);
+        println!("v_trop before rescaling: {:?}", &v_trop);
     }
 
     u_trop = u_trop.one();
@@ -268,10 +242,10 @@ fn sample_feynman_parameters_in_sector<T: MomTropFloat, L: Logger>(
 /// This function returns the feynman parameters for a given graph and sample point, it also computes u_trop and v_trop.
 /// A rescaling is performed for numerical stability, with this rescaling u_trop and v_trop always evaluate to 1.
 #[inline]
-fn permatuhedral_sampling<T: MomTropFloat, L: Logger>(
+fn permatuhedral_sampling<T: MomTropFloat>(
     tropical_subgraph_table: &TropicalSubgraphTable,
     rng: &mut MimicRng<T>,
-    settings: &TropicalSamplingSettings<L>,
+    settings: &TropicalSamplingSettings,
 ) -> PermatuhedralSamplingResult<T> {
     let mut graph = tropical_subgraph_table
         .tropical_graph

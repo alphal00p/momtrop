@@ -1,17 +1,24 @@
+//! `momtrop` is a flexible Rust library for tropical Feynman sampling of loop integrals in momentum space (https://arxiv.org/abs/2504.09613).
+//! It allows users to define graphs with arbitrary edge weights, dimensions, and external kinematics,
+//! and supports custom floating-point types via the `MomtropFloat` trait.
+//!
+//! The library only takes care of sample generation, and defers the evaluation of the integrand to the user.
+
+use std::iter::repeat_with;
+
+use bincode::{Decode, Encode};
+
 use float::MomTropFloat;
 use itertools::Itertools;
-use log::Logger;
 use matrix::{DecompositionResult, SquareMatrix};
 use preprocessing::{TropicalGraph, TropicalSubgraphTable};
 use rand::Rng;
-use sampling::{sample, SamplingError};
+use sampling::{SamplingError, sample};
 use serde::{Deserialize, Serialize};
-use std::iter::repeat_with;
 use vector::Vector;
 
 pub mod float;
 pub mod gamma;
-pub mod log;
 pub mod matrix;
 mod mimic_rng;
 mod preprocessing;
@@ -28,7 +35,7 @@ pub const MAX_VERTICES: usize = 256;
 
 #[derive(Debug, Clone)]
 /// Struct containing all runtime settings.
-pub struct TropicalSamplingSettings<L: Logger = ()> {
+pub struct TropicalSamplingSettings {
     /// `matrix_stability_test` tests the numerical stability
     /// of some of the matrix routines used during sampling. This is done by checking
     /// how far L L^-1 is from the identity matrix in terms of a L_2_1 norm. If this distance is
@@ -40,18 +47,15 @@ pub struct TropicalSamplingSettings<L: Logger = ()> {
     /// Enabling `return_metadata` provides access to some of the intermediate results. This is useful for
     /// exploring new applications.
     pub return_metadata: bool,
-    /// Optional logger for logging messages during sampling.
-    pub logger: Option<L>,
 }
 
 #[allow(clippy::derivable_impls)]
-impl<L: Logger> Default for TropicalSamplingSettings<L> {
+impl Default for TropicalSamplingSettings {
     fn default() -> Self {
         Self {
             matrix_stability_test: None,
             print_debug_info: false,
             return_metadata: false,
-            logger: None,
         }
     }
 }
@@ -124,12 +128,50 @@ pub struct Metadata<T: MomTropFloat, const D: usize> {
 impl Graph {
     /// Build the sampler from a graph. `loop_signature` is the signature matrix determining the loop-momentum routing.
     /// Returns `Err` if a divergent subgraph is found.
+    ///
+    /// For example, the following code builds a sampler for the massless triangle with all edges having weight 2/3.
+    ///
+    ///```rust
+    ///use momtrop::{Graph, Edge};
+    ///
+    ///let weight = 2.0 / 3.0;
+    ///
+    ///let triangle_edges = vec![
+    ///    Edge {
+    ///        vertices: (0, 1),
+    ///        is_massive: false,
+    ///        weight,
+    ///    },
+    ///    Edge {
+    ///        vertices: (1, 2),
+    ///        is_massive: false,
+    ///        weight,
+    ///    },
+    ///    Edge {
+    ///        vertices: (2, 0),
+    ///        is_massive: false,
+    ///        weight,
+    ///    },
+    ///];
+    ///
+    ///let externals = vec![0, 1, 2];
+    ///
+    ///let triangle_graph = Graph {
+    ///    edges: triangle_edges,
+    ///    externals,
+    ///};
+    ///
+    /// let loop_signature = vec![vec![1]; 3];
+    /// let triangle_sampler = triangle_graph.build_sampler::<3>(loop_signature);
+    ///
+    /// assert!(triangle_sampler.is_ok());
+    /// ```
     pub fn build_sampler<const D: usize>(
         self,
         loop_signature: Vec<Vec<isize>>,
     ) -> Result<SampleGenerator<D>, String> {
         let tropical_graph = TropicalGraph::from_graph(self, D)?;
-        let table = TropicalSubgraphTable::generate_from_tropical(&tropical_graph, D)?;
+        let table = TropicalSubgraphTable::generate_from_tropical(tropical_graph, D, None)?;
 
         Ok(SampleGenerator {
             loop_signature,
@@ -146,7 +188,7 @@ fn approx_eq<T: MomTropFloat>(res: &T, target: &T, tolerance: &T) -> bool {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Decode, Encode)]
 /// Sampler struct from which sample points can be generated.
 pub struct SampleGenerator<const D: usize> {
     loop_signature: Vec<Vec<isize>>,
@@ -156,11 +198,61 @@ pub struct SampleGenerator<const D: usize> {
 impl<const D: usize> SampleGenerator<D> {
     /// Generate a sample point for a given random point `x_space_point` in the unit hypercube.
     /// `edge_data` contains masses and shifs of each propagator.
-    pub fn generate_sample_from_x_space_point<T: MomTropFloat, L: Logger>(
+    /// Dimensionality of the unit hypercube, should match the length of `x_space_point`.
+    ///```rust
+    ///# use momtrop::{Graph, Edge};
+    ///use momtrop::{TropicalSamplingSettings, vector::Vector};
+    ///use rand::{rngs::StdRng, SeedableRng, Rng};
+    ///use std::iter::repeat_with;
+    ///#
+    ///# let weight = 2.0 / 3.0;
+    ///#
+    ///# let triangle_edges = vec![
+    ///#     Edge {
+    ///#         vertices: (0, 1),
+    ///#         is_massive: false,
+    ///#         weight,
+    ///#     },
+    ///#     Edge {
+    ///#         vertices: (1, 2),
+    ///#         is_massive: false,
+    ///#         weight,
+    ///#     },
+    ///#     Edge {
+    ///#         vertices: (2, 0),
+    ///#         is_massive: false,
+    ///#         weight,
+    ///#     },
+    ///# ];
+    ///#
+    ///# let externals = vec![0, 1, 2];
+    ///#
+    ///# let triangle_graph = Graph {
+    ///#     edges: triangle_edges,
+    ///#     externals,
+    ///# };
+    ///#
+    ///#  let loop_signature = vec![vec![1]; 3];
+    ///let triangle_sampler = triangle_graph.build_sampler::<3>(loop_signature).unwrap();
+    ///
+    ///let settings = TropicalSamplingSettings::default();
+    ///
+    ///let p_1 = Vector::from_array([0.1, 0.2, 0.3]);
+    ///let p_2 = Vector::from_array([0.4, 0.5, 0.6]);
+    ///let edge_data = vec![(None, Vector::new_from_num(&0.0)), (None, p_1), (None, p_2)];
+    ///
+    ///let mut rng: StdRng = SeedableRng::seed_from_u64(42);
+    ///
+    ///let x_space_point = repeat_with(|| rng.r#gen::<f64>()).take(triangle_sampler.get_dimension()).collect::<Vec<_>>();
+    ///let sample = triangle_sampler.generate_sample_from_x_space_point(&x_space_point, edge_data, &settings, None);
+    /// assert!(sample.is_ok());
+    ///
+    /// ```
+    pub fn generate_sample_from_x_space_point<T: MomTropFloat>(
         &self,
         x_space_point: &[T],
         edge_data: Vec<(Option<T>, vector::Vector<T, D>)>,
-        settings: &TropicalSamplingSettings<L>,
+        settings: &TropicalSamplingSettings,
         force_sector: Option<&[usize]>,
     ) -> Result<TropicalSampleResult<T, D>, SamplingError> {
         sample(
@@ -175,16 +267,64 @@ impl<const D: usize> SampleGenerator<D> {
 
     /// Alternative to `generate_sample_from_x_space_point`. Uses a `Rng` to generate the point
     /// in the unit hypercube.
-    pub fn generate_sample_from_rng<T: MomTropFloat, R: Rng, L: Logger>(
+    ///```rust
+    ///# use momtrop::{Graph, Edge};
+    ///use momtrop::{TropicalSamplingSettings, vector::Vector};
+    ///use rand::{rngs::StdRng, SeedableRng, Rng};
+    ///use std::iter::repeat_with;
+    ///#
+    ///# let weight = 2.0 / 3.0;
+    ///#
+    ///# let triangle_edges = vec![
+    ///#     Edge {
+    ///#         vertices: (0, 1),
+    ///#         is_massive: false,
+    ///#         weight,
+    ///#     },
+    ///#     Edge {
+    ///#         vertices: (1, 2),
+    ///#         is_massive: false,
+    ///#         weight,
+    ///#     },
+    ///#     Edge {
+    ///#         vertices: (2, 0),
+    ///#         is_massive: false,
+    ///#         weight,
+    ///#     },
+    ///# ];
+    ///#
+    ///# let externals = vec![0, 1, 2];
+    ///#
+    ///# let triangle_graph = Graph {
+    ///#     edges: triangle_edges,
+    ///#     externals,
+    ///# };
+    ///#
+    ///#  let loop_signature = vec![vec![1]; 3];
+    ///let triangle_sampler = triangle_graph.build_sampler::<3>(loop_signature).unwrap();
+    ///
+    ///let settings = TropicalSamplingSettings::default();
+    ///
+    ///let p_1 = Vector::from_array([0.1, 0.2, 0.3]);
+    ///let p_2 = Vector::from_array([0.4, 0.5, 0.6]);
+    ///let edge_data = vec![(None, Vector::new_from_num(&0.0)), (None, p_1), (None, p_2)];
+    ///
+    ///let mut rng: StdRng = SeedableRng::seed_from_u64(42);
+    ///
+    ///let sample = triangle_sampler.generate_sample_from_rng(edge_data, &settings, &mut rng);
+    /// assert!(sample.is_ok());
+    ///
+    /// ```
+    pub fn generate_sample_from_rng<T: MomTropFloat, R: Rng>(
         &self,
         edge_data: Vec<(Option<T>, vector::Vector<T, D>)>,
-        settings: &TropicalSamplingSettings<L>,
+        settings: &TropicalSamplingSettings,
         rng: &mut R,
     ) -> Result<TropicalSampleResult<T, D>, SamplingError> {
         let const_builder = edge_data[0].1.zero();
 
         let num_vars = self.get_dimension();
-        let x_space_point = repeat_with(|| const_builder.from_f64(rng.gen::<f64>()))
+        let x_space_point = repeat_with(|| const_builder.from_f64(rng.r#gen::<f64>()))
             .take(num_vars)
             .collect_vec();
 
@@ -192,21 +332,161 @@ impl<const D: usize> SampleGenerator<D> {
     }
 
     /// Dimensionality of the unit hypercube, should match the length of `x_space_point`.
+    ///```rust
+    ///# use momtrop::{Graph, Edge};
+    ///#
+    ///# let weight = 2.0 / 3.0;
+    ///#
+    ///# let triangle_edges = vec![
+    ///#     Edge {
+    ///#         vertices: (0, 1),
+    ///#         is_massive: false,
+    ///#         weight,
+    ///#     },
+    ///#     Edge {
+    ///#         vertices: (1, 2),
+    ///#         is_massive: false,
+    ///#         weight,
+    ///#     },
+    ///#     Edge {
+    ///#         vertices: (2, 0),
+    ///#         is_massive: false,
+    ///#         weight,
+    ///#     },
+    ///# ];
+    ///#
+    ///# let externals = vec![0, 1, 2];
+    ///#
+    ///# let triangle_graph = Graph {
+    ///#     edges: triangle_edges,
+    ///#     externals,
+    ///# };
+    ///#
+    ///#  let loop_signature = vec![vec![1]; 3];
+    ///let triangle_sampler = triangle_graph.build_sampler::<3>(loop_signature).unwrap();
+    ///
+    /// assert_eq!(triangle_sampler.get_dimension(), 2*3 - 1 + 3 + (3 % 2) );
+    /// ```
     pub fn get_dimension(&self) -> usize {
         self.table.get_num_variables()
     }
 
     /// Degree of divergence of the provided graph.
+    ///```rust
+    ///# use momtrop::{Graph, Edge};
+    ///#
+    ///# let weight = 2.0 / 3.0;
+    ///#
+    ///# let triangle_edges = vec![
+    ///#     Edge {
+    ///#         vertices: (0, 1),
+    ///#         is_massive: false,
+    ///#         weight,
+    ///#     },
+    ///#     Edge {
+    ///#         vertices: (1, 2),
+    ///#         is_massive: false,
+    ///#         weight,
+    ///#     },
+    ///#     Edge {
+    ///#         vertices: (2, 0),
+    ///#         is_massive: false,
+    ///#         weight,
+    ///#     },
+    ///# ];
+    ///#
+    ///# let externals = vec![0, 1, 2];
+    ///#
+    ///# let triangle_graph = Graph {
+    ///#     edges: triangle_edges,
+    ///#     externals,
+    ///# };
+    ///#
+    ///#  let loop_signature = vec![vec![1]; 3];
+    ///let triangle_sampler = triangle_graph.build_sampler::<3>(loop_signature).unwrap();
+    ///
+    /// assert_eq!(triangle_sampler.get_dod(), 3.0 * 2.0 / 3.0 - 3.0 / 2.0);
+    /// ```
     pub fn get_dod(&self) -> f64 {
         self.table.tropical_graph.dod
     }
 
     /// Iterate over the edge weights of the provided graph.
+    ///```rust
+    ///# use momtrop::{Graph, Edge};
+    ///#
+    ///# let weight = 2.0 / 3.0;
+    ///#
+    ///# let triangle_edges = vec![
+    ///#     Edge {
+    ///#         vertices: (0, 1),
+    ///#         is_massive: false,
+    ///#         weight,
+    ///#     },
+    ///#     Edge {
+    ///#         vertices: (1, 2),
+    ///#         is_massive: false,
+    ///#         weight,
+    ///#     },
+    ///#     Edge {
+    ///#         vertices: (2, 0),
+    ///#         is_massive: false,
+    ///#         weight,
+    ///#     },
+    ///# ];
+    ///#
+    ///# let externals = vec![0, 1, 2];
+    ///#
+    ///# let triangle_graph = Graph {
+    ///#     edges: triangle_edges,
+    ///#     externals,
+    ///# };
+    ///#
+    ///#  let loop_signature = vec![vec![1]; 3];
+    ///let triangle_sampler = triangle_graph.build_sampler::<3>(loop_signature).unwrap();
+    ///
+    /// assert!(triangle_sampler.iter_edge_weights().all(|w| w == 2.0/3.0));
+    /// ```
     pub fn iter_edge_weights(&self) -> impl Iterator<Item = f64> + '_ {
         self.table.tropical_graph.topology.iter().map(|e| e.weight)
     }
 
     /// Get the number of edges of the provided graph.
+    ///```rust
+    ///# use momtrop::{Graph, Edge};
+    ///#
+    ///# let weight = 2.0 / 3.0;
+    ///#
+    ///# let triangle_edges = vec![
+    ///#     Edge {
+    ///#         vertices: (0, 1),
+    ///#         is_massive: false,
+    ///#         weight,
+    ///#     },
+    ///#     Edge {
+    ///#         vertices: (1, 2),
+    ///#         is_massive: false,
+    ///#         weight,
+    ///#     },
+    ///#     Edge {
+    ///#         vertices: (2, 0),
+    ///#         is_massive: false,
+    ///#         weight,
+    ///#     },
+    ///# ];
+    ///#
+    ///# let externals = vec![0, 1, 2];
+    ///#
+    ///# let triangle_graph = Graph {
+    ///#     edges: triangle_edges,
+    ///#     externals,
+    ///# };
+    ///#
+    ///#  let loop_signature = vec![vec![1]; 3];
+    ///let triangle_sampler = triangle_graph.build_sampler::<3>(loop_signature).unwrap();
+    ///
+    /// assert_eq!(triangle_sampler.get_num_edges(), 3);
+    /// ```
     pub fn get_num_edges(&self) -> usize {
         self.table.tropical_graph.topology.len()
     }

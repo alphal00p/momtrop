@@ -1,0 +1,15 @@
+import_model scalars-full
+import_graphs trop_paper_cards/diagrams/2_point_4_loop.dot
+!rm -rf trop_paper_outputs/2_point_4_loop
+output trop_paper_outputs/2_point_4_loop
+launch trop_paper_outputs/2_point_4_loop
+info
+set integrated_phase 'real'
+set rotation_axis []
+set sampling {'type':'discrete_graph_sampling','subtype':'tropical'}
+set continuous_dim_learning_rate 0.0
+set e_cm 1.
+set externals.data.momenta [[0.,0.,0.,1.],]
+set n_start 10_000_000
+set n_max 1_000_000_000
+integrate 2_point_4_loop -c 6 -r -t (8.36515e-8,0.0)

@@ -20,5 +20,3 @@ jobs:
       run: cargo build --verbose
     - name: Run test
       run: cargo test --verbose
-    - name: Run test log feature
-      run: cargo test --verbose --features "log"

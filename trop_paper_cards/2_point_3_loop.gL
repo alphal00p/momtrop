@@ -1,0 +1,19 @@
+import_model scalars-full
+import_graphs trop_paper_cards/diagrams/2_point_3_loop.dot
+
+!rm -rf trop_paper_outputs/2_point_3_loop
+output trop_paper_outputs/2_point_3_loop
+
+launch trop_paper_outputs/2_point_3_loop
+info
+
+set sampling {'type':'discrete_graph_sampling','subtype':'tropical','matrix_stability_test':1.0e-5}
+set amplitude_prefactor {'re':0.0,'im':-1.0}
+
+set e_cm 1.
+set externals.data.momenta [[0.,0.,0.,1.],]
+set n_start 10_000_000
+set n_max 1_000_000_000
+
+set rotation_axis []
+integrate 2_point_3_loop -c 10 -r -t (5.26647e-6,0.)

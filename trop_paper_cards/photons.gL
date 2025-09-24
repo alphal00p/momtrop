@@ -1,0 +1,30 @@
+import_model sm 
+import_graphs trop_paper_cards/diagrams/physical_1L_6photons.dot
+!rm -rf trop_paper_outputs/photons
+output trop_paper_outputs/photons
+launch trop_paper_outputs/photons
+set externals.data.momenta [\
+[500.0,0.,-300.,400.],\
+[500.0,0.,300.,-400.],\
+[88.551333054502976,-22.100690287689979,40.080353191685333,-75.805430956936632],\
+[328.32941922709853,-103.84961188345630,-301.93375538954012,76.494921387165888],\
+[152.35810946743061,-105.88095966659220,-97.709638326975707,49.548385226792817],\
+]
+set externals.data.helicities [-1,-1,-1,-1,-1,-1]
+set_model_param mz 91.188 -nu
+set_model_param gf 1.19874983504616246e-5 -nu
+set_model_param mt 173.0 -nu
+set_model_param ymt 173.0 -nu
+set_model_param mt 1500.0 -nu
+set_model_param ymt 1500.0 -nu
+set_model_param aewm1 128.93 -nu
+set_model_param update_only 0.
+set integrated_phase 'real'
+set e_cm 1.
+#set sampling {'type':'default'}
+set sampling {'type':'discrete_graph_sampling','subtype':'tropical'}
+set n_start 10000
+set n_max 1_000_000_000
+set rotation_axis []
+integrate physical_1L_6photons -r -t (1.22898408452706e-13,3.94362534040412e-13) -c 6
+

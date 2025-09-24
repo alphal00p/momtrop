@@ -1,14 +1,14 @@
 use itertools::Itertools;
 use pyo3::{
+    Bound, IntoPyObject, PyResult,
     exceptions::PyValueError,
     pyclass, pymethods, pymodule,
     types::{PyModule, PyModuleMethods},
-    Bound, IntoPyObject, PyResult,
 };
 
 use crate::{
-    preprocessing::Subgraph, vector::Vector, Edge, Graph, SampleGenerator, TropicalSampleResult,
-    TropicalSamplingSettings,
+    Edge, Graph, SampleGenerator, TropicalSampleResult, TropicalSamplingSettings,
+    preprocessing::Subgraph, vector::Vector,
 };
 
 #[pyclass(name = "Edge")]
@@ -192,7 +192,6 @@ impl PythonSettings {
                 matrix_stability_test,
                 print_debug_info,
                 return_metadata,
-                logger: None,
             },
         }
     }

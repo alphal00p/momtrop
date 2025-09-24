@@ -1,19 +1,27 @@
 use core::f64;
+use std::vec;
 
 use ahash::HashSet;
+use bincode::{Decode, Encode};
 use itertools::Itertools;
-use num::Zero;
 use serde::{Deserialize, Serialize};
 use statrs::function::gamma::gamma;
 
-use crate::{float::MomTropFloat, Graph, MAX_EDGES};
+use crate::{Graph, MAX_EDGES, float::MomTropFloat};
+use clarabel::{
+    algebra::CscMatrix,
+    solver::{
+        DefaultSettings, DefaultSolver, IPSolver,
+        SupportedConeT::{NonnegativeConeT, ZeroConeT},
+    },
+};
 
 pub enum Subgraph<'a> {
     Id(TropicalSubGraphId),
     Edges(&'a [usize]),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub struct TropicalGraph {
     pub dod: f64,
     pub topology: Vec<TropicalEdge>,
@@ -249,9 +257,221 @@ impl TropicalGraph {
             j_function
         }
     }
+
+    fn generate_stage_1(&self) -> Vec<OptionTropicalSubgraphTableEntry> {
+        let num_edges = self.topology.len();
+        let powerset_size = 2usize.pow(num_edges as u32);
+
+        // allocate the subgraph table
+        let mut option_subgraph_table =
+            vec![OptionTropicalSubgraphTableEntry::all_none(); powerset_size];
+
+        // create iterator over all subgraphs
+        let subgraph_iterator =
+            (0..powerset_size).map(|i| TropicalSubGraphId::from_id(i, num_edges));
+
+        for subgraph in subgraph_iterator {
+            let edges_in_subgraph = subgraph.contains_edges().collect_vec();
+
+            // check the mass-momentum spanning property
+            let is_mass_momentum_spanning = self.is_mass_momentum_spanning(&edges_in_subgraph);
+
+            option_subgraph_table[subgraph.id].mass_momentum_spanning =
+                Some(is_mass_momentum_spanning);
+
+            let loop_number = self.get_loop_number(&edges_in_subgraph);
+
+            option_subgraph_table[subgraph.id].loop_number = Some(loop_number as u8);
+        }
+
+        option_subgraph_table
+    }
+
+    fn optimize_edge_weights(
+        &mut self,
+        dimension: usize,
+        progress: &[OptionTropicalSubgraphTableEntry],
+        target_omega: f64,
+    ) {
+        let num_edges = self.topology.len();
+        let input_size = num_edges + 1;
+
+        let full_id = self.get_full_subgraph_id();
+
+        let mut q = vec![0.0; num_edges];
+        q.push(-1.0);
+
+        let mut p = Vec::with_capacity(input_size);
+
+        for i in 0..num_edges {
+            let mut row = vec![0.0; input_size];
+            row[i] = 1.0;
+            p.push(row);
+        }
+
+        p.push(vec![0.0; input_size]);
+
+        let p = CscMatrix::from(&p);
+
+        let output_size = 2u64.pow(num_edges as u32) as usize; // number of constraints
+        let mut a = Vec::with_capacity(output_size);
+        let mut b = Vec::with_capacity(output_size);
+
+        for (subgraph_usize, entry) in progress.iter().enumerate() {
+            let subgraph = TropicalSubGraphId::from_id(subgraph_usize, num_edges);
+            let is_mass_momentum_spanning = entry
+                .mass_momentum_spanning
+                .unwrap_or_else(|| unreachable!());
+
+            let loop_number = entry.loop_number.unwrap_or_else(|| unreachable!());
+
+            if subgraph.is_empty() {
+                continue;
+            } else if subgraph == full_id {
+                let mut row = vec![-1.0; input_size - 1];
+                row.push(0.0);
+                a.push(row);
+                b.push(self.num_loops as f64 * dimension as f64 / -2.0);
+            } else {
+                let mut row = vec![0.0; input_size];
+                for edge in subgraph.contains_edges() {
+                    row[edge] = -1.0;
+                }
+
+                if is_mass_momentum_spanning {
+                    for edge in 0..num_edges {
+                        row[edge] += 1.0;
+                    }
+                }
+
+                a.push(row);
+
+                if is_mass_momentum_spanning {
+                    b.push((self.num_loops as u8 - loop_number) as f64 * dimension as f64 / 2.0);
+                } else {
+                    b.push(-(loop_number as f64 * dimension as f64) / 2.0);
+                }
+            }
+        }
+
+        let mut last_row = vec![0.0; input_size - 1];
+        last_row.push(1.0);
+        a.push(last_row);
+        b.push(target_omega);
+
+        //display_matrix(&a);
+        //display_column_vector(&b);
+
+        let a = CscMatrix::from(&a);
+        let cones = [NonnegativeConeT(output_size - 1), ZeroConeT(1)];
+        let settings = DefaultSettings::default();
+
+        let mut solver = DefaultSolver::new(&p, &q, &a, &b, &cones, settings).unwrap();
+        solver.solve();
+
+        let solution = solver.solution.x;
+        let new_edge_weights = &solution[0..num_edges];
+
+        let mut weight_sum = 0.0;
+        for (i, edge) in self.topology.iter_mut().enumerate() {
+            edge.weight = new_edge_weights[i];
+            weight_sum += edge.weight;
+            println!("Edge {} new weight: {}", i, edge.weight);
+        }
+
+        self.dod = weight_sum - (self.num_loops as f64 * dimension as f64) / 2.0;
+    }
+
+    fn generate_stage_2(
+        self,
+        dimension: usize,
+        mut progress: Vec<OptionTropicalSubgraphTableEntry>,
+    ) -> Result<TropicalSubgraphTable, String> {
+        if self.dod < 0.0 {
+            return Err(format!("Graph has negative DoD: {}", self.dod));
+        }
+
+        let full_subgraph_id = self.get_full_subgraph_id();
+
+        for (subgraph_usize, table_entry) in progress.iter_mut().enumerate() {
+            let subgraph = TropicalSubGraphId::from_id(subgraph_usize, self.topology.len());
+            let edges_in_subgraph = subgraph.contains_edges().collect_vec();
+
+            let weight_sum = self.compute_weight_sum(&edges_in_subgraph);
+            let is_mass_momentum_spanning =
+                table_entry.mass_momentum_spanning.unwrap_or_else(|| {
+                    unreachable!("mass-momentum spanning not set for subgraph {subgraph:?}")
+                });
+
+            let loop_number = table_entry
+                .loop_number
+                .unwrap_or_else(|| unreachable!("loop number not set for subgraph {subgraph:?}"));
+
+            let generalized_dod = if !subgraph.is_empty() {
+                if is_mass_momentum_spanning {
+                    weight_sum - loop_number as f64 * dimension as f64 / 2.0 - self.dod
+                } else {
+                    weight_sum - loop_number as f64 * dimension as f64 / 2.0
+                }
+            } else {
+                1.0
+            };
+
+            if generalized_dod <= 0.0 && !subgraph.is_empty() && subgraph != full_subgraph_id {
+                return Err(format!(
+                    "Generalized DoD: {generalized_dod} is negative for subgraph {subgraph:?}\n
+                    loop number: {loop_number}, mass-momentum spanning: {is_mass_momentum_spanning}, weight sum: {weight_sum}"
+                ));
+            }
+
+            table_entry.generalized_dod = Some(generalized_dod);
+        }
+
+        TropicalGraph::recursive_fill_j_function(&full_subgraph_id, &mut progress);
+
+        let gamma_omega = gamma(self.dod);
+        let denom = self
+            .topology
+            .iter()
+            .map(|e| gamma(e.weight))
+            .product::<f64>();
+
+        let gamma_ratio = gamma_omega / denom;
+        let pi_factor = f64::consts::PI.powf((dimension * self.num_loops) as f64 / 2.);
+
+        let table = progress
+            .into_iter()
+            .map(OptionTropicalSubgraphTableEntry::to_entry)
+            .collect_vec();
+
+        let i_tr = table.last().unwrap().j_function;
+
+        let cached_factor = i_tr * gamma_ratio * pi_factor;
+
+        Ok(TropicalSubgraphTable {
+            table,
+            dimension,
+            cached_factor,
+            tropical_graph: self,
+        })
+    }
 }
 
-#[derive(Clone, Copy, Serialize, Deserialize, Debug)]
+#[allow(unused)]
+fn display_matrix(matrix: &Vec<Vec<f64>>) {
+    for row in matrix {
+        println!("{:?}", row);
+    }
+}
+
+#[allow(unused)]
+fn display_column_vector(v: &Vec<f64>) {
+    for entry in v {
+        println!("{:?}", entry);
+    }
+}
+
+#[derive(Clone, Copy, Serialize, Deserialize, Debug, Encode, Decode)]
 pub struct TropicalEdge {
     edge_id: u8,
     left: u8,
@@ -367,7 +587,7 @@ impl OptionTropicalSubgraphTableEntry {
 }
 
 /// Data that needs to be stored for each subgraph
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Encode, Decode)]
 pub struct TropicalSubgraphTableEntry {
     pub loop_number: u8,
     pub mass_momentum_spanning: bool,
@@ -376,7 +596,7 @@ pub struct TropicalSubgraphTableEntry {
 }
 
 /// The list of data for all subgraphs, indexed using the TropicalSubGraphId
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub struct TropicalSubgraphTable {
     pub table: Vec<TropicalSubgraphTableEntry>,
     pub dimension: usize,
@@ -385,86 +605,16 @@ pub struct TropicalSubgraphTable {
 }
 
 impl TropicalSubgraphTable {
-    pub fn generate_from_tropical(
-        tropical_graph: &TropicalGraph,
+    pub(crate) fn generate_from_tropical(
+        mut tropical_graph: TropicalGraph,
         dimension: usize,
+        target_omega: Option<f64>,
     ) -> Result<Self, String> {
-        let num_edges = tropical_graph.topology.len();
-        let powerset_size = 2usize.pow(num_edges as u32);
-
-        // allocate the subgraph table
-        let mut option_subgraph_table =
-            vec![OptionTropicalSubgraphTableEntry::all_none(); powerset_size];
-
-        // create iterator over all subgraphs
-        let subgraph_iterator =
-            (0..powerset_size).map(|i| TropicalSubGraphId::from_id(i, num_edges));
-
-        let full_subgraph_id = tropical_graph.get_full_subgraph_id();
-
-        for subgraph in subgraph_iterator {
-            let edges_in_subgraph = subgraph.contains_edges().collect_vec();
-
-            // check the mass-momentum spanning property
-            let is_mass_momentum_spanning =
-                tropical_graph.is_mass_momentum_spanning(&edges_in_subgraph);
-
-            option_subgraph_table[subgraph.id].mass_momentum_spanning =
-                Some(is_mass_momentum_spanning);
-
-            // compute the sum of weights of all edges in the subgraph
-            let weight_sum = tropical_graph.compute_weight_sum(&edges_in_subgraph);
-            let loop_number = tropical_graph.get_loop_number(&edges_in_subgraph);
-
-            let generalized_dod = if !subgraph.is_empty() {
-                if is_mass_momentum_spanning {
-                    weight_sum - loop_number as f64 * dimension as f64 / 2.0 - tropical_graph.dod
-                } else {
-                    weight_sum - loop_number as f64 * dimension as f64 / 2.0
-                }
-            } else {
-                1.0
-            };
-
-            if generalized_dod <= 0.0 && !subgraph.is_empty() && subgraph != full_subgraph_id {
-                return Err(format!(
-                    "Generalized DoD: {generalized_dod} is negative for subgraph {subgraph:?}\n
-                    loop number: {loop_number}, mass-momentum spanning: {is_mass_momentum_spanning}, weight sum: {weight_sum}"
-                ));
-            }
-
-            option_subgraph_table[subgraph.id].loop_number = Some(loop_number as u8);
-            option_subgraph_table[subgraph.id].generalized_dod = Some(generalized_dod);
+        let progress = tropical_graph.generate_stage_1();
+        if let Some(target_omega) = target_omega {
+            tropical_graph.optimize_edge_weights(dimension, &progress, target_omega);
         }
-
-        TropicalGraph::recursive_fill_j_function(&full_subgraph_id, &mut option_subgraph_table);
-
-        let gamma_omega = gamma(tropical_graph.dod);
-        let denom = tropical_graph
-            .topology
-            .iter()
-            .map(|e| gamma(e.weight))
-            .product::<f64>();
-
-        let gamma_ratio = gamma_omega / denom;
-        let pi_factor = f64::consts::PI.powf((dimension * tropical_graph.num_loops) as f64 / 2.);
-        let two_to_the_e = (1 << tropical_graph.topology.len()) as f64;
-
-        let table = option_subgraph_table
-            .into_iter()
-            .map(OptionTropicalSubgraphTableEntry::to_entry)
-            .collect_vec();
-
-        let i_tr = table.last().unwrap().j_function;
-
-        let cached_factor = i_tr * gamma_ratio * pi_factor / two_to_the_e;
-
-        Ok(TropicalSubgraphTable {
-            table,
-            dimension,
-            cached_factor,
-            tropical_graph: tropical_graph.clone(),
-        })
+        tropical_graph.generate_stage_2(dimension, progress)
     }
 
     /// sample an edge from a subgraph, according to the relevant probability distribution, returns the edge and the subgraph without the edge for later use
@@ -489,7 +639,10 @@ impl TropicalSubgraphTable {
             }
         }
 
-        panic!("Sampling could not sample edge, with uniform_random_number: {:?}, cumulative sum evaluated to: {:?}", uniform, cum_sum);
+        panic!(
+            "Sampling could not sample edge, with uniform_random_number: {:?}, cumulative sum evaluated to: {:?}",
+            uniform, cum_sum
+        );
     }
 
     /// Get the probability of selecting and edge for a given subgraph. The result is padded with zeroes for
@@ -552,7 +705,7 @@ impl TropicalSubgraphTable {
         self.table
             .iter()
             .map(|entry| entry.generalized_dod)
-            .filter(|x| !x.is_zero())
+            .filter(|&x| x > 0.0)
             .reduce(f64::min)
             .unwrap()
     }
@@ -562,7 +715,7 @@ impl TropicalSubgraphTable {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{assert_approx_eq, Edge};
+    use crate::{Edge, assert_approx_eq};
 
     const TOLERANCE: f64 = 1e-14;
     // panics with useful error message
@@ -658,17 +811,17 @@ mod tests {
                 Edge {
                     vertices: (0, 1),
                     is_massive: false,
-                    weight: 1.0,
+                    weight: 1.5,
                 },
                 Edge {
                     vertices: (0, 1),
                     is_massive: false,
-                    weight: 1.0,
+                    weight: 1.5,
                 },
                 Edge {
                     vertices: (0, 1),
                     is_massive: false,
-                    weight: 1.0,
+                    weight: 1.5,
                 },
             ],
             externals: vec![0, 1],
@@ -681,17 +834,17 @@ mod tests {
                 Edge {
                     vertices: (0, 1),
                     is_massive: true,
-                    weight: 1.0,
+                    weight: 1.5,
                 },
                 Edge {
                     vertices: (0, 1),
                     is_massive: true,
-                    weight: 1.0,
+                    weight: 1.5,
                 },
                 Edge {
                     vertices: (0, 1),
                     is_massive: true,
-                    weight: 1.0,
+                    weight: 1.5,
                 },
             ],
             externals: vec![0, 1],
@@ -737,7 +890,7 @@ mod tests {
         let tropical_sunrise = TropicalGraph::from_graph(sunrise_graph, 3).unwrap();
 
         assert_eq!(tropical_sunrise.topology.len(), 3);
-        assert_eq!(tropical_sunrise.dod, 0.0);
+        assert_eq!(tropical_sunrise.dod, 1.5);
         assert_eq!(tropical_sunrise.num_loops, 2);
         assert_eq!(tropical_sunrise.num_massive_edges, 0);
 
@@ -745,7 +898,7 @@ mod tests {
             assert_eq!(edge.left, 0);
             assert_eq!(edge.right, 1);
             assert!(!edge.is_massive);
-            assert_eq!(edge.weight, 1.0);
+            assert_eq!(edge.weight, 1.5);
         }
     }
 
@@ -1005,8 +1158,10 @@ mod tests {
             num_loops: 1,
         };
 
-        let subgraph_table = TropicalSubgraphTable::generate_from_tropical(&triangle_graph, 3)
+        let subgraph_table = TropicalSubgraphTable::generate_from_tropical(triangle_graph, 3, None)
             .expect("Failed to generate subgraph table");
+
+        //panic!("{:?}", subgraph_table.tropical_graph);
 
         assert_eq!(subgraph_table.table.len(), 8);
 
@@ -1046,78 +1201,6 @@ mod tests {
         assert_eq!(final_table.loop_number, 1);
         assert_approx_eq(&final_table.generalized_dod, &0.0, &TOLERANCE);
         assert_approx_eq(&final_table.j_function, &10.822_510_822_510_82, &TOLERANCE);
-    }
-
-    #[test]
-    fn test_sunrise() {
-        let sunrise_topology = vec![
-            TropicalEdge {
-                edge_id: 0,
-                left: 0,
-                right: 1,
-                weight: 0.66,
-                is_massive: false,
-            },
-            TropicalEdge {
-                edge_id: 1,
-                left: 0,
-                right: 1,
-                weight: 0.66,
-                is_massive: false,
-            },
-            TropicalEdge {
-                edge_id: 2,
-                left: 0,
-                right: 1,
-                weight: 0.66,
-                is_massive: false,
-            },
-        ];
-
-        let sunrise_graph = TropicalGraph {
-            dod: 3. * 0.66 - 6. / 2.,
-            topology: sunrise_topology,
-            num_massive_edges: 0,
-            external_vertices: vec![0, 1],
-            num_loops: 2,
-        };
-
-        let subgraph_table = TropicalSubgraphTable::generate_from_tropical(&sunrise_graph, 3)
-            .expect("Failed to generate subgraph table");
-
-        assert_eq!(subgraph_table.table.len(), 8);
-
-        assert_eq!(
-            subgraph_table.table[0],
-            TropicalSubgraphTableEntry {
-                loop_number: 0,
-                mass_momentum_spanning: false,
-                j_function: 1.0,
-                generalized_dod: 1.0,
-            }
-        );
-
-        for i in [1, 2, 4] {
-            let table = subgraph_table.table[i];
-            assert!(table.mass_momentum_spanning);
-            assert_eq!(table.loop_number, 0);
-            assert_approx_eq(&table.generalized_dod, &1.68, &TOLERANCE);
-            assert_approx_eq(&table.j_function, &1.0, &TOLERANCE);
-        }
-
-        for i in [3, 5, 6] {
-            let table = subgraph_table.table[i];
-            assert!(table.mass_momentum_spanning);
-            assert_eq!(table.loop_number, 1);
-            assert_approx_eq(&table.generalized_dod, &0.84, &TOLERANCE);
-            assert_approx_eq(&table.j_function, &1.190_476_190_476_19, &TOLERANCE);
-        }
-
-        let final_table = subgraph_table.table[7];
-        assert!(final_table.mass_momentum_spanning);
-        assert_eq!(final_table.loop_number, 2);
-        assert_approx_eq(&final_table.generalized_dod, &0.0, &TOLERANCE);
-        assert_approx_eq(&final_table.j_function, &4.251_700_680_272_108, &TOLERANCE);
     }
 
     #[test]
@@ -1185,8 +1268,10 @@ mod tests {
             num_loops: 3,
         };
 
-        let subgraph_table = TropicalSubgraphTable::generate_from_tropical(&gr, 3)
+        let subgraph_table = TropicalSubgraphTable::generate_from_tropical(gr, 3, None)
             .expect("Failed to generate subgraph table");
+
+        //panic!("{:?}", subgraph_table.tropical_graph);
 
         let i_tr = subgraph_table.table.last().unwrap().j_function;
 
