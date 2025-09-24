@@ -1,5 +1,4 @@
 use itertools::{Itertools, izip};
-use pyo3::exceptions::PyValueError;
 
 use super::TropicalSubgraphTable;
 use crate::gamma::GammaError;
@@ -32,7 +31,7 @@ impl From<SamplingError> for pyo3::PyErr {
             SamplingError::GammaError(_) => "Sampling gamma distribution failed",
         };
 
-        PyValueError::new_err(error_string)
+        pyo3::exceptions::PyValueError::new_err(error_string)
     }
 }
 
