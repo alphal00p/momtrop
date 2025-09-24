@@ -167,7 +167,7 @@ impl Graph {
         loop_signature: Vec<Vec<isize>>,
     ) -> Result<SampleGenerator<D>, String> {
         let tropical_graph = TropicalGraph::from_graph(self, D);
-        let table = TropicalSubgraphTable::generate_from_tropical(tropical_graph, D)?;
+        let table = TropicalSubgraphTable::generate_from_tropical(tropical_graph, D, None)?;
 
         Ok(SampleGenerator {
             loop_signature,

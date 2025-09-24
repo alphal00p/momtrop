@@ -1,4 +1,5 @@
-use core::f64;
+use core::{f64, num};
+use std::vec;
 
 use ahash::HashSet;
 use bincode::{Decode, Encode};
@@ -7,6 +8,13 @@ use serde::{Deserialize, Serialize};
 use statrs::function::gamma::gamma;
 
 use crate::{Graph, MAX_EDGES, float::MomTropFloat};
+use clarabel::{
+    algebra::CscMatrix,
+    solver::{
+        DefaultSettings, DefaultSolver, IPSolver,
+        SupportedConeT::{NonnegativeConeT, ZeroConeT},
+    },
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub struct TropicalGraph {
@@ -270,6 +278,101 @@ impl TropicalGraph {
         option_subgraph_table
     }
 
+    fn optimize_edge_weights(
+        &mut self,
+        dimension: usize,
+        progress: &[OptionTropicalSubgraphTableEntry],
+        target_omega: f64,
+    ) {
+        let num_edges = self.topology.len();
+        let input_size = num_edges + 1;
+
+        let full_id = self.get_full_subgraph_id();
+
+        let mut q = vec![0.0; num_edges];
+        q.push(-1.0);
+
+        let mut p = Vec::with_capacity(input_size);
+
+        for i in 0..num_edges {
+            let mut row = vec![0.0; input_size];
+            row[i] = 1.0;
+            p.push(row);
+        }
+
+        p.push(vec![0.0; input_size]);
+
+        let p = CscMatrix::from(&p);
+
+        let output_size = 2u64.pow(num_edges as u32) as usize; // number of constraints
+        let mut a = Vec::with_capacity(output_size);
+        let mut b = Vec::with_capacity(output_size);
+
+        for (subgraph_usize, entry) in progress.iter().enumerate() {
+            let subgraph = TropicalSubGraphId::from_id(subgraph_usize, num_edges);
+            let is_mass_momentum_spanning = entry
+                .mass_momentum_spanning
+                .unwrap_or_else(|| unreachable!());
+
+            let loop_number = entry.loop_number.unwrap_or_else(|| unreachable!());
+
+            if subgraph.is_empty() {
+                continue;
+            } else if subgraph == full_id {
+                let mut row = vec![-1.0; input_size - 1];
+                row.push(0.0);
+                a.push(row);
+                b.push(self.num_loops as f64 * dimension as f64 / -2.0);
+            } else {
+                let mut row = vec![0.0; input_size];
+                for edge in subgraph.contains_edges() {
+                    row[edge] = -1.0;
+                }
+
+                if is_mass_momentum_spanning {
+                    for edge in 0..num_edges {
+                        row[edge] += 1.0;
+                    }
+                }
+
+                a.push(row);
+
+                if is_mass_momentum_spanning {
+                    b.push((self.num_loops as u8 - loop_number) as f64 * dimension as f64 / 2.0);
+                } else {
+                    b.push(-(loop_number as f64 * dimension as f64) / 2.0);
+                }
+            }
+        }
+
+        let mut last_row = vec![0.0; input_size - 1];
+        last_row.push(1.0);
+        a.push(last_row);
+        b.push(target_omega);
+
+        //display_matrix(&a);
+        //display_column_vector(&b);
+
+        let a = CscMatrix::from(&a);
+        let cones = [NonnegativeConeT(output_size - 1), ZeroConeT(1)];
+        let settings = DefaultSettings::default();
+
+        let mut solver = DefaultSolver::new(&p, &q, &a, &b, &cones, settings).unwrap();
+        solver.solve();
+
+        let solution = solver.solution.x;
+        let new_edge_weights = &solution[0..num_edges];
+
+        let mut weight_sum = 0.0;
+        for (i, edge) in self.topology.iter_mut().enumerate() {
+            edge.weight = new_edge_weights[i];
+            weight_sum += edge.weight;
+            println!("Edge {} new weight: {}", i, edge.weight);
+        }
+
+        self.dod = weight_sum - (self.num_loops as f64 * dimension as f64) / 2.0;
+    }
+
     fn generate_stage_2(
         self,
         dimension: usize,
@@ -342,6 +445,18 @@ impl TropicalGraph {
             cached_factor,
             tropical_graph: self,
         })
+    }
+}
+
+fn display_matrix(matrix: &Vec<Vec<f64>>) {
+    for row in matrix {
+        println!("{:?}", row);
+    }
+}
+
+fn display_column_vector(v: &Vec<f64>) {
+    for entry in v {
+        println!("{:?}", entry);
     }
 }
 
@@ -480,10 +595,14 @@ pub struct TropicalSubgraphTable {
 
 impl TropicalSubgraphTable {
     pub(crate) fn generate_from_tropical(
-        tropical_graph: TropicalGraph,
+        mut tropical_graph: TropicalGraph,
         dimension: usize,
+        target_omega: Option<f64>,
     ) -> Result<Self, String> {
         let progress = tropical_graph.generate_stage_1();
+        if let Some(target_omega) = target_omega {
+            tropical_graph.optimize_edge_weights(dimension, &progress, target_omega);
+        }
         tropical_graph.generate_stage_2(dimension, progress)
     }
 
@@ -984,8 +1103,11 @@ mod tests {
             num_loops: 1,
         };
 
-        let subgraph_table = TropicalSubgraphTable::generate_from_tropical(triangle_graph, 3)
-            .expect("Failed to generate subgraph table");
+        let subgraph_table =
+            TropicalSubgraphTable::generate_from_tropical(triangle_graph, 3, Some(0.48))
+                .expect("Failed to generate subgraph table");
+
+        panic!("{:?}", subgraph_table.tropical_graph);
 
         assert_eq!(subgraph_table.table.len(), 8);
 
@@ -1092,8 +1214,10 @@ mod tests {
             num_loops: 3,
         };
 
-        let subgraph_table = TropicalSubgraphTable::generate_from_tropical(gr, 3)
+        let subgraph_table = TropicalSubgraphTable::generate_from_tropical(gr, 3, Some(1.0))
             .expect("Failed to generate subgraph table");
+
+        panic!("{:?}", subgraph_table.tropical_graph);
 
         let i_tr = subgraph_table.table.last().unwrap().j_function;
 
