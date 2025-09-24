@@ -7,7 +7,7 @@ use momtrop::{
 };
 
 // We also need a random number generator, a seedable RNG is used for reproducibility
-use rand::{Rng, SeedableRng};
+use rand::SeedableRng;
 
 /// integrate a massless triangle with LTD and tropicalsampling
 #[test]
@@ -79,14 +79,14 @@ fn integrate_massless_triangle() {
     };
 
     // This is the number of random variable that we need
-    let dimension = sampler.get_dimension();
+    // let dimension = sampler.get_dimension();
 
     // start the integration loop
     for _ in 0..n_samples {
         // generate the random variables for the sample.
-        let random_variables = std::iter::repeat_with(|| rng.r#gen::<f64>())
-            .take(dimension)
-            .collect::<Vec<_>>();
+        //let random_variables = std::iter::repeat_with(|| rng.r#gen::<f64>())
+        //    .take(dimension)
+        //    .collect::<Vec<_>>();
 
         // generate a sample point
         let sample = sampler

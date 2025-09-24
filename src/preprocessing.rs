@@ -1,4 +1,4 @@
-use core::{f64, num};
+use core::f64;
 use std::vec;
 
 use ahash::HashSet;
@@ -448,12 +448,14 @@ impl TropicalGraph {
     }
 }
 
+#[allow(unused)]
 fn display_matrix(matrix: &Vec<Vec<f64>>) {
     for row in matrix {
         println!("{:?}", row);
     }
 }
 
+#[allow(unused)]
 fn display_column_vector(v: &Vec<f64>) {
     for entry in v {
         println!("{:?}", entry);
