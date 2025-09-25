@@ -21,6 +21,7 @@ pub mod float;
 pub mod gamma;
 pub mod matrix;
 mod mimic_rng;
+pub mod parse;
 mod preprocessing;
 mod sampling;
 pub mod vector;
@@ -73,14 +74,14 @@ pub fn assert_approx_eq<T: MomTropFloat>(res: &T, target: &T, tolerance: &T) {
 /// Main graph struct from which a sampler can be build. This graph should be stripped of
 /// tree-like and external edges.
 /// Vertices which would have external edges attached to them must be added to the `externals` field.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Graph {
     pub edges: Vec<Edge>,
     pub externals: Vec<u8>,
 }
 
 /// Edge struct from which a graph can be specified.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Edge {
     pub vertices: (u8, u8),
     pub is_massive: bool,

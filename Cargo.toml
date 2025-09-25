@@ -47,3 +47,4 @@ serde = { version = "1.0", features = ["derive"] }
 ref-ops = "0.2.5"
 bincode = "2.0.1"
 clarabel = "0.11.1"
+dot-parser = "0.6.0"
