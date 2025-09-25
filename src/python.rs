@@ -3,7 +3,7 @@ use pyo3::{
     Bound, IntoPyObject, PyResult,
     exceptions::PyValueError,
     pyclass, pymethods, pymodule,
-    types::{PyModule, PyModuleMethods},
+    types::{PyModule, PyModuleMethods, PyType},
 };
 
 use crate::{
@@ -69,6 +69,22 @@ impl PythonSampler {
             Ok(sampler) => Ok(PythonSampler { sampler }),
             Err(error_message) => Err(PyValueError::new_err(error_message)),
         }
+    }
+
+    #[classmethod]
+    pub fn new_from_dot_string(_cls: &Bound<'_, PyType>, dot_string: &str) -> PyResult<Self> {
+        SampleGenerator::try_from(dot_string)
+            .map_err(|e| PyValueError::new_err(e))
+            .map(|sampler| PythonSampler { sampler })
+    }
+
+    #[classmethod]
+    pub fn new_from_dot_file(_cls: &Bound<'_, PyType>, file_path: &str) -> PyResult<Self> {
+        let dot_string = std::fs::read_to_string(file_path)
+            .map_err(|e| PyValueError::new_err(format!("failed to read file: {}", e)))?;
+        SampleGenerator::try_from(dot_string.as_str())
+            .map_err(|e| PyValueError::new_err(e))
+            .map(|sampler| PythonSampler { sampler })
     }
 
     /// Get the dimensionality of the unit hypercube
