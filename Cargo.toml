@@ -41,10 +41,12 @@ ahash = "0.8.11"
 statrs = "0.16.0"
 itertools = "0.12.1"
 rand = "0.8.5"
-criterion = "0.5.1"
 serde = { version = "1.0", features = ["derive"] }
 
 ref-ops = "0.2.5"
 bincode = "2.0.1"
 clarabel = "0.11.1"
 dot-parser = "0.6.0"
+
+[dev-dependencies]
+criterion = "0.5.1"
