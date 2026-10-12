@@ -2,6 +2,9 @@
 
 `momtrop` is a Rust library implementing the tropical Feynman sampling algorithm for loop integrals in momentum space (https://arxiv.org/abs/2504.09613). It is designed for maximum flexibility: the user retains full control over the evaluation of the integrand, and the sampling process is fully generic over floating-point types.
 
+DOT string and file constructors are enabled by default through the `dot` feature.
+Use `default-features = false` for programmatic graph construction without the DOT parser.
+
 ---
 
 ## Defining a Graph

@@ -16,6 +16,8 @@ crate-type = ["lib"]
 
 
 [features]
+default = ["dot"]
+dot = ["dep:dot-parser"]
 python_api = ["pyo3"]
 
 [[bench]]
@@ -46,7 +48,7 @@ serde = { version = "1.0", features = ["derive"] }
 ref-ops = "0.2.5"
 bincode = "2.0.1"
 clarabel = "0.11.1"
-dot-parser = "0.6.0"
+dot-parser = { version = "0.6.0", optional = true }
 
 [dev-dependencies]
 criterion = "0.5.1"

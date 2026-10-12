@@ -21,6 +21,7 @@ pub mod float;
 pub mod gamma;
 pub mod matrix;
 mod mimic_rng;
+#[cfg(feature = "dot")]
 pub mod parse;
 mod preprocessing;
 mod sampling;

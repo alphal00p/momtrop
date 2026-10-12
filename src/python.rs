@@ -1,9 +1,11 @@
 use itertools::Itertools;
+#[cfg(feature = "dot")]
+use pyo3::types::PyType;
 use pyo3::{
     Bound, IntoPyObject, PyResult,
     exceptions::PyValueError,
     pyclass, pymethods, pymodule,
-    types::{PyModule, PyModuleMethods, PyType},
+    types::{PyModule, PyModuleMethods},
 };
 
 use crate::{
@@ -71,6 +73,7 @@ impl PythonSampler {
         }
     }
 
+    #[cfg(feature = "dot")]
     #[classmethod]
     pub fn new_from_dot_string(_cls: &Bound<'_, PyType>, dot_string: &str) -> PyResult<Self> {
         SampleGenerator::try_from(dot_string)
@@ -78,6 +81,7 @@ impl PythonSampler {
             .map(|sampler| PythonSampler { sampler })
     }
 
+    #[cfg(feature = "dot")]
     #[classmethod]
     pub fn new_from_dot_file(_cls: &Bound<'_, PyType>, file_path: &str) -> PyResult<Self> {
         let dot_string = std::fs::read_to_string(file_path)
